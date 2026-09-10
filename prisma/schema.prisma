@@ -1,0 +1,178 @@
+// CSMJU Co-op Prep & Activity Hours Tracking System
+// Subsystem database (isolated — no cross-subsystem foreign keys per the
+// CSMJU2030 "database-per-subsystem" rule). Shared identity fields
+// (username / layer1_role / faculty) are mirrored locally from JWT headers,
+// never treated as a source of truth for auth.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum ActivityStatus {
+  OPEN
+  CLOSED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITING
+  ATTENDED
+  ABSENT
+  CANCELLED
+}
+
+// Layer 2 (subsystem-local) role.
+// Layer 1 role comes from the JWT header and is never persisted as the
+// source of truth for permissions.
+enum SubsystemRole {
+  student
+  admin
+}
+
+enum HourRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HourRequestCategory {
+  COOP
+  VOLUNTEER
+  MAJOR
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+/// Local mirror of a CSMJU2030 identity the moment it first touches this
+/// subsystem. `username` is the shared identity key from the JWT
+/// (`x-user-id`). Everything else here is local (layer2) data.
+model UserProfile {
+  id          String        @id @default(cuid())
+  username    String        @unique
+  displayName String?
+  major       String?
+  yearLevel   Int?
+  layer2Role  SubsystemRole @default(student)
+
+  registrations Registration[]
+  hourSummary   UserHourSummary?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([layer2Role])
+}
+
+/// Running total of hours earned per category for a student.
+model UserHourSummary {
+  id       String @id @default(cuid())
+  username String @unique
+
+  userProfile UserProfile @relation(fields: [username], references: [username])
+
+  coopHours      Float @default(0)
+  volunteerHours Float @default(0)
+  majorHours     Float @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Activity {
+  id                   String   @id @default(cuid())
+  title                String
+  description          String   @db.Text
+  location             String
+  startTime            DateTime
+  endTime              DateTime
+  registrationDeadline DateTime
+  capacity             Int
+  lecturerInCharge     String
+
+  coopHours      Float @default(0)
+  volunteerHours Float @default(0)
+  majorHours     Float @default(0)
+
+  status ActivityStatus @default(OPEN)
+
+  createdByUsername String
+
+  registrations Registration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([startTime])
+}
+
+model Registration {
+  id         String @id @default(cuid())
+  activityId String
+  username   String
+
+  activity   Activity   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [username], references: [username])
+
+  status RegistrationStatus @default(REGISTERED)
+
+  // Waiting-list position, 1..5.
+  // Null once REGISTERED/ATTENDED/etc.
+  queueNumber Int?
+
+  registeredAt DateTime  @default(now())
+  attendedAt   DateTime?
+  cancelledAt  DateTime?
+
+  // Hours actually credited to the student for this activity.
+  // Snapshot at the moment attendance was confirmed.
+  creditedCoopHours      Float?
+  creditedVolunteerHours Float?
+  creditedMajorHours     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One registration per student per activity.
+  @@unique([activityId, username])
+
+  // Waiting-list ordering must be unique per activity.
+  @@unique([activityId, queueNumber])
+
+  @@index([status])
+}
+
+/// Manual hour claim submitted by a student
+/// (e.g. external volunteer work), reviewed by staff/admin.
+model HourRequest {
+  id          String @id @default(cuid())
+  studentId   String
+  studentName String
+
+  title       String
+  category    HourRequestCategory
+  hours       Float
+  proofUrl    String?
+  description String?             @db.Text
+
+  status          HourRequestStatus @default(PENDING)
+  rejectionReason String?           @db.Text
+  reviewedBy      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}

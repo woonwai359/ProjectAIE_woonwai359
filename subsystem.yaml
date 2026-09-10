@@ -1,0 +1,13 @@
+name: csmju-coop-hours
+display_name: "ระบบติดตามชั่วโมงสหกิจและกิจกรรม"
+owner: 6xxxxxxxxx-your-username # replace with the AIE's username before submitting to PM
+repo: github.com/csmju2030/csmju-coop-hours
+standards_version: "1.2.0" # must match the .md version this app was built against
+default_role_mapping:
+  student: student
+  staff: admin
+  admin: admin
+requested_exceptions:
+  - username: 6xxxxxxxxx-your-username
+    role: admin # developer exception — subsystem-local admin for testing/maintenance
+callback_url: https://coop-hours.csmju2030.ac.th/auth/callback

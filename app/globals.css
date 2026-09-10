@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface text-neutral font-thai antialiased;
+    font-size: 14px;
+    line-height: 1.6;
+    letter-spacing: 0; /* CSMJU2030 rule: no negative letter-spacing on Thai text */
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-semibold text-primary-dark;
+    line-height: 1.4;
+  }
+
+  :focus-visible {
+    outline: 2px solid #004c99;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-slate-200 bg-white shadow-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md border border-primary bg-white px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-md border border-danger px-4 py-2 text-sm font-medium text-danger transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .input {
+    @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-neutral focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary;
+  }
+
+  .label {
+    @apply mb-1 block text-sm font-medium text-neutral;
+  }
+}
+
+/* A4 printable attendance sheet — hides all app chrome. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
