@@ -1,12 +1,9 @@
-import { HourRequestCategory, HourRequestStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import type { Identity } from '@/lib/auth';
 
 // ---------------------------------------------------------------------------
-// Shared errors — thrown by the service layer, translated to either an
-// ActionResult (Server Actions) or a standard envelope + HTTP status
-// (Route Handlers) by the two callers in lib/actions/hour-request.ts and
-// app/api/requests/**.
+// Shared errors
 // ---------------------------------------------------------------------------
 
 export class HourRequestNotFoundError extends Error {
@@ -36,7 +33,7 @@ export class HourRequestOwnershipError extends Error {
 
 export interface HourRequestInput {
   title: string;
-  category: HourRequestCategory;
+  category?: string;
   hours: number;
   proofUrl?: string | null;
   description?: string | null;
@@ -46,22 +43,8 @@ function validateInput(input: HourRequestInput): void {
   if (!input.title || input.title.trim().length === 0) {
     throw new HourRequestStateError('กรุณากรอกชื่องาน/กิจกรรม');
   }
-  if (!['COOP', 'VOLUNTEER', 'MAJOR'].includes(input.category)) {
-    throw new HourRequestStateError('หมวดหมู่ไม่ถูกต้อง');
-  }
   if (!Number.isFinite(input.hours) || input.hours <= 0) {
     throw new HourRequestStateError('จำนวนชั่วโมงต้องมากกว่า 0');
-  }
-}
-
-function categoryToSummaryField(category: HourRequestCategory): 'coopHours' | 'volunteerHours' | 'majorHours' {
-  switch (category) {
-    case HourRequestCategory.COOP:
-      return 'coopHours';
-    case HourRequestCategory.VOLUNTEER:
-      return 'volunteerHours';
-    case HourRequestCategory.MAJOR:
-      return 'majorHours';
   }
 }
 
@@ -71,14 +54,14 @@ function categoryToSummaryField(category: HourRequestCategory): 'coopHours' | 'v
 
 export async function listMyHourRequests(studentId: string) {
   return prisma.hourRequest.findMany({
-    where: { studentId },
+    where: { userId: studentId },
     orderBy: { createdAt: 'desc' },
   });
 }
 
 export async function listPendingHourRequests() {
   return prisma.hourRequest.findMany({
-    where: { status: HourRequestStatus.PENDING },
+    where: { status: 'PENDING_APPROVAL' },
     orderBy: { createdAt: 'asc' },
   });
 }
@@ -94,28 +77,37 @@ export async function getHourRequestById(id: string) {
 export async function createHourRequest(identity: Identity, input: HourRequestInput) {
   validateInput(input);
 
+  const today = new Date().toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
   return prisma.hourRequest.create({
     data: {
-      studentId: identity.userId,
-      studentName: identity.userId, // display name isn't in the JWT; refined once UserProfile.displayName is set
+      userId: identity.userId,
       title: input.title.trim(),
-      category: input.category,
+      type: input.category || 'กิจกรรมภายนอก (คอมพิวเตอร์)',
+      typeCategory: 'ภายนอก',
+      dateStr: today,
+      timeStr: '09:00 - 16:00',
       hours: input.hours,
-      proofUrl: input.proofUrl || null,
-      description: input.description || null,
-      status: HourRequestStatus.PENDING,
+      status: 'PENDING_APPROVAL',
+      statusText: 'รอตรวจสอบ',
+      imageProof: input.proofUrl || null,
+      note: input.description || null,
     },
   });
 }
 
-/** Student edits a REJECTED request and resubmits it — resets to PENDING. */
+/** Student edits a REJECTED request and resubmits it — resets to PENDING_APPROVAL. */
 export async function resubmitHourRequest(identity: Identity, requestId: string, input: HourRequestInput) {
   validateInput(input);
 
   const existing = await prisma.hourRequest.findUnique({ where: { id: requestId } });
   if (!existing) throw new HourRequestNotFoundError();
-  if (existing.studentId !== identity.userId) throw new HourRequestOwnershipError();
-  if (existing.status !== HourRequestStatus.REJECTED) {
+  if (existing.userId !== identity.userId) throw new HourRequestOwnershipError();
+  if (existing.status !== 'REJECTED') {
     throw new HourRequestStateError('แก้ไขและยื่นใหม่ได้เฉพาะคำร้องที่ถูกปฏิเสธเท่านั้น');
   }
 
@@ -123,42 +115,33 @@ export async function resubmitHourRequest(identity: Identity, requestId: string,
     where: { id: requestId },
     data: {
       title: input.title.trim(),
-      category: input.category,
+      type: input.category || existing.type,
       hours: input.hours,
-      proofUrl: input.proofUrl || null,
-      description: input.description || null,
-      status: HourRequestStatus.PENDING,
-      rejectionReason: null,
-      reviewedBy: null,
+      imageProof: input.proofUrl || null,
+      note: input.description || null,
+      status: 'PENDING_APPROVAL',
+      statusText: 'รอตรวจสอบ',
+      rejectReason: null,
     },
   });
 }
 
-/** Staff/admin approves a PENDING request — credits hours into UserHourSummary. */
+/** Staff/admin approves a PENDING request */
 export async function approveHourRequest(identity: Identity, requestId: string) {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.hourRequest.findUnique({ where: { id: requestId } });
-    if (!existing) throw new HourRequestNotFoundError();
-    if (existing.status !== HourRequestStatus.PENDING) {
-      throw new HourRequestStateError('อนุมัติได้เฉพาะคำร้องที่สถานะรอตรวจสอบเท่านั้น');
-    }
+  const existing = await prisma.hourRequest.findUnique({ where: { id: requestId } });
+  if (!existing) throw new HourRequestNotFoundError();
+  if (existing.status !== 'PENDING_APPROVAL') {
+    throw new HourRequestStateError('อนุมัติได้เฉพาะคำร้องที่สถานะรอตรวจสอบเท่านั้น');
+  }
 
-    const field = categoryToSummaryField(existing.category);
-
-    await tx.userHourSummary.upsert({
-      where: { username: existing.studentId },
-      create: { username: existing.studentId, [field]: existing.hours },
-      update: { [field]: { increment: existing.hours } },
-    });
-
-    return tx.hourRequest.update({
-      where: { id: requestId },
-      data: {
-        status: HourRequestStatus.APPROVED,
-        reviewedBy: identity.userId,
-        rejectionReason: null,
-      },
-    });
+  return prisma.hourRequest.update({
+    where: { id: requestId },
+    data: {
+      status: 'APPROVED',
+      statusText: 'อนุมัติแล้ว',
+      approvedHours: existing.hours,
+      rejectReason: null,
+    },
   });
 }
 
@@ -170,16 +153,16 @@ export async function rejectHourRequest(identity: Identity, requestId: string, r
 
   const existing = await prisma.hourRequest.findUnique({ where: { id: requestId } });
   if (!existing) throw new HourRequestNotFoundError();
-  if (existing.status !== HourRequestStatus.PENDING) {
+  if (existing.status !== 'PENDING_APPROVAL') {
     throw new HourRequestStateError('ปฏิเสธได้เฉพาะคำร้องที่สถานะรอตรวจสอบเท่านั้น');
   }
 
   return prisma.hourRequest.update({
     where: { id: requestId },
     data: {
-      status: HourRequestStatus.REJECTED,
-      rejectionReason: reason.trim(),
-      reviewedBy: identity.userId,
+      status: 'REJECTED',
+      statusText: 'ส่งกลับแก้ไข',
+      rejectReason: reason.trim(),
     },
   });
 }
