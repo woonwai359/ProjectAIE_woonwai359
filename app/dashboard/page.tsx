@@ -20,7 +20,7 @@ export interface ActivityItem {
   status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string;
   statusText: string;
   hours: number;
-  approvedHours?: number | null; // เพิ่มรองรับชั่วโมงที่ผ่านการอนุมัติจริง
+  approvedHours?: number | null;
   approvedCategory?: 'COOP' | 'VOLUNTEER';
   typeCategory?: string;
   reason?: string;
@@ -139,7 +139,6 @@ export default function StudentDashboardPage() {
   };
 
   const loadAllData = async () => {
-    // 1. เชื่อมต่อฐานข้อมูลจริงผ่าน Prisma / API หรือดึงจากตารางที่ต่อไว้ในระบบ Docker
     try {
       const response = await fetch('/api/student/dashboard', { method: 'GET', cache: 'no-store' });
       if (response.ok) {
@@ -153,7 +152,6 @@ export default function StudentDashboardPage() {
       console.warn('Fallback to local mirror storage sync:', err);
     }
 
-    // Fallback โหมดเชื่อมต่อภายในหากกำลังรันจำลอง
     const saved = localStorage.getItem('csmju_shared_activities');
     if (saved) {
       try {
@@ -193,15 +191,12 @@ export default function StudentDashboardPage() {
     return () => window.removeEventListener('csmju_activity_updated', loadAllData);
   }, []);
 
-  // ฟังก์ชันกดลงทะเบียนกิจกรรมของหลักสูตร (เชื่อมฐานข้อมูลจริงผ่าน API/Server Action)
   const handleRegisterActivity = async (act: PublishedActivity) => {
-    if (registeredIds.includes(act.id)) {
-      alert('คุณได้ลงทะเบียนกิจกรรมนี้ไปแล้ว');
-      return;
-    }
+    const isRegistered = registeredIds.includes(act.id);
+    const action = isRegistered ? 'CANCEL' : 'REGISTER';
 
     const currentCount = act.registeredCount || 0;
-    if (currentCount >= act.capacity) {
+    if (!isRegistered && currentCount >= act.capacity) {
       alert('ขออภัย กิจกรรมนี้ที่นั่งเต็มแล้ว');
       return;
     }
@@ -210,10 +205,10 @@ export default function StudentDashboardPage() {
       const res = await fetch('/api/student/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activityId: act.id }),
+        body: JSON.stringify({ activityId: act.id, action }),
       });
       if (!res.ok) {
-        console.warn('Server registration sync fallback to local');
+        console.warn('Server registration sync fallback');
       }
     } catch (e) {
       console.error(e);
@@ -221,39 +216,46 @@ export default function StudentDashboardPage() {
 
     const updatedPublished = publishedList.map((item) => {
       if (item.id === act.id) {
-        return { ...item, registeredCount: (item.registeredCount || 0) + 1 };
+        return {
+          ...item,
+          registeredCount: isRegistered ? Math.max(0, (item.registeredCount || 1) - 1) : (item.registeredCount || 0) + 1,
+        };
       }
       return item;
     });
     setPublishedList(updatedPublished);
     localStorage.setItem('csmju_published_activities', JSON.stringify(updatedPublished));
 
-    const nextRegs = [...registeredIds, act.id];
+    let nextRegs = [];
+    if (isRegistered) {
+      nextRegs = registeredIds.filter((id) => id !== act.id);
+      setActivities(activities.filter((a) => a.title !== act.title));
+      alert(`ยกเลิกการลงทะเบียน "${act.title}" เรียบร้อยแล้ว`);
+    } else {
+      nextRegs = [...registeredIds, act.id];
+      const isCoop = act.category.includes('สหกิจ');
+      const autoAct: ActivityItem = {
+        id: `reg-${Date.now()}`,
+        dateStr: act.dateStr,
+        timeStr: act.timeStr || '09:00 - 16:00',
+        title: act.title,
+        categoryTarget: isCoop ? 'COOP' : 'VOLUNTEER',
+        typeDetail: 'กิจกรรมของหลักสูตร',
+        status: 'PENDING_APPROVAL',
+        statusText: 'ลงทะเบียนแล้ว (รอเช็คชื่อ)',
+        hours: act.hours,
+        approvedHours: act.hours,
+        note: `สถานที่: ${act.location}`,
+      };
+      safeSaveActivities([autoAct, ...activities]);
+      alert(`ลงทะเบียนสำเร็จ: "${act.title}" เรียบร้อยแล้ว`);
+    }
     setRegisteredIds(nextRegs);
     localStorage.setItem('csmju_my_registrations', JSON.stringify(nextRegs));
-
-    const isCoop = act.category.includes('สหกิจ');
-    const autoAct: ActivityItem = {
-      id: `reg-${Date.now()}`,
-      dateStr: act.dateStr,
-      timeStr: act.timeStr || '09:00 - 16:00',
-      title: act.title,
-      categoryTarget: isCoop ? 'COOP' : 'VOLUNTEER',
-      typeDetail: 'กิจกรรมของหลักสูตร',
-      status: 'PENDING_APPROVAL',
-      statusText: 'ลงทะเบียนแล้ว (รอเช็คชื่อ)',
-      hours: act.hours,
-      approvedHours: act.hours,
-      note: `สถานที่: ${act.location}`,
-    };
-
-    safeSaveActivities([autoAct, ...activities]);
-    alert(`ลงทะเบียนสำเร็จ: "${act.title}" เรียบร้อยแล้ว ระบบเพิ่มเข้าประวัติกิจกรรมของคุณแล้ว`);
   };
 
   const coopTarget = 15;
 
-  // ปรับการคำนวณชั่วโมงให้ดึง approvedHours และเช็กหมวดหมู่ที่อนุมัติจริง
   const coopHoursEarned = useMemo(() => {
     return activities
       .filter(
@@ -575,17 +577,17 @@ export default function StudentDashboardPage() {
 
                   <button
                     type="button"
-                    disabled={isRegistered || isClosed || isFull}
+                    disabled={isClosed || isFull}
                     onClick={() => handleRegisterActivity(act)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
                       isRegistered
-                        ? 'bg-emerald-100 text-emerald-800 cursor-not-allowed opacity-90'
+                        ? 'bg-rose-100 hover:bg-rose-200 text-rose-700'
                         : isClosed || isFull
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20'
                     }`}
                   >
-                    {isRegistered ? 'ลงทะเบียนเรียบร้อย' : isFull ? 'เต็มแล้ว' : 'กดลงทะเบียนเข้าร่วม'}
+                    {isRegistered ? 'ยกเลิกการลงทะเบียน' : isFull ? 'เต็มแล้ว' : 'กดลงทะเบียนเข้าร่วม'}
                   </button>
                 </div>
               </div>
@@ -691,7 +693,7 @@ export default function StudentDashboardPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl scale-in-95 duration-200">
             <div className="flex justify-between items-center pb-2 border-b">
               <h3 className="text-sm font-bold text-slate-800">ยื่นคำร้องขอชั่วโมงกิจกรรม</h3>
-              <button onClick={() => setIsSubmitModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">
+              <button onClick={() => setIsSubmitModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">
                 &times;
               </button>
             </div>
@@ -780,13 +782,13 @@ export default function StudentDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsSubmitModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 transition"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
                 >
                   ส่งให้อาจารย์ตรวจสอบ
                 </button>
@@ -802,7 +804,7 @@ export default function StudentDashboardPage() {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-3 shadow-2xl scale-in-95 duration-200">
             <div className="flex justify-between items-center border-b pb-2">
               <h3 className="text-sm font-bold text-slate-800">รายละเอียดคำร้อง</h3>
-              <button onClick={() => setSelectedActivityDetail(null)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">
+              <button onClick={() => setSelectedActivityDetail(null)} className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">
                 &times;
               </button>
             </div>
@@ -832,7 +834,7 @@ export default function StudentDashboardPage() {
             <div className="text-right pt-2">
               <button
                 onClick={() => setSelectedActivityDetail(null)}
-                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition"
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
               >
                 ปิด
               </button>

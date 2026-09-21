@@ -3,30 +3,32 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
-    // ค้นหาจากรหัสนักศึกษา หรือดึงจากโปรไฟล์แรกในระบบชั่วคราวเพื่อให้แสดงผลได้ทันที
+    const studentUsername = '6704101359';
+
     const studentProfile = await prisma.userProfile.findFirst({
+      where: { studentCode: studentUsername },
       include: { HourRequest: true },
     });
 
-    if (!studentProfile) {
-      return NextResponse.json({ success: true, activities: [], publishedList: [], registeredIds: [] });
-    }
+    // ดึงประวัติการลงทะเบียนจริงจากตาราง Participation
+    const participations = await prisma.participation.findMany({
+      where: { studentUsername },
+    });
+    const registeredIds = participations.map((p) => p.activityId);
 
-    // ดึงรายการกิจกรรมที่เปิดรับสมัคร
     const activitiesFromDb = await prisma.activity.findMany({
       where: { status: { in: ['OPEN', 'PUBLISHED'] } },
       orderBy: { date: 'desc' },
     });
 
-    // แปลงข้อมูลคำร้องและส่งค่า approvedHours / status กลับไป
-    const formattedActivities = (studentProfile.HourRequest || []).map((req) => ({
+    const formattedActivities = (studentProfile?.HourRequest || []).map((req) => ({
       id: req.id,
       dateStr: req.dateStr,
       timeStr: req.timeStr || '09:00 - 16:00',
       title: req.title,
       categoryTarget: req.typeCategory === 'VOLUNTEER' ? 'VOLUNTEER' : 'COOP',
       typeDetail: req.type,
-      status: req.status, // ต้องเป็น "APPROVED" ถึงจะนำไปบวกชั่วโมง
+      status: req.status,
       statusText: req.statusText || (req.status === 'APPROVED' ? 'อนุมัติแล้ว' : 'รอตรวจสอบ'),
       hours: req.hours,
       approvedHours: req.approvedHours ?? req.hours,
@@ -54,7 +56,7 @@ export async function GET(request: Request) {
       success: true,
       activities: formattedActivities,
       publishedList: formattedPublishedList,
-      registeredIds: [],
+      registeredIds,
     });
   } catch (error) {
     console.error('API Dashboard Error:', error);
