@@ -115,7 +115,7 @@ export function AdminRequestsTable({ requests }: { requests: HourRequest[] }) {
                       </div>
                     </div>
                   </td>
-
+                  
                   <td className="px-4 py-3 text-neutral font-medium">{r.title}</td>
                   <td className="px-4 py-3 text-slate-600">{CATEGORY_LABEL[r.category] ?? r.category}</td>
                   <td className="px-4 py-3 font-semibold text-primary-dark">{formatHours(r.hours)} ชม.</td>

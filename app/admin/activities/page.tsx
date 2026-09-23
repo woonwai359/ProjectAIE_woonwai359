@@ -16,45 +16,43 @@ export interface PublishedActivity {
   status: 'OPEN' | 'CLOSED';
 }
 
-const DEFAULT_PUBLISHED: PublishedActivity[] = [
-  {
-    id: 'seed-activity-1',
-    title: 'ค่ายอาสาพัฒนาห้องสมุดโรงเรียน (CSMJU)',
-    category: 'ชั่วโมงจิตอาสา',
-    dateStr: '25 ก.ย. 2569',
-    location: 'โรงเรียนบ้านแม่โจ้ อ.สันทราย',
-    hours: 4,
-    capacity: 30,
-    registeredCount: 12,
-    status: 'OPEN',
-  },
-  {
-    id: 'act-2',
-    title: 'อบรมเชิงปฏิบัติการ Docker & Cloud Deployment',
-    category: 'ชั่วโมงวิชาชีพ / สหกิจศึกษา (สาขา)',
-    dateStr: '30 ก.ย. 2569',
-    location: 'ห้องปฏิบัติการคอมพิวเตอร์ 2',
-    hours: 6,
-    capacity: 40,
-    registeredCount: 35,
-    status: 'OPEN',
-  },
-];
-
 export default function AdminActivitiesPage() {
   const [publishedList, setPublishedList] = useState<PublishedActivity[]>([]);
 
-  const loadActivities = () => {
+  const loadActivities = async () => {
+    try {
+      const res = await fetch('/api/admin/activities', { method: 'GET', cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.activities && Array.isArray(data.activities)) {
+          // แปลงรูปแบบข้อมูลจาก Prisma ให้ตรงกับหน้าจอแอดมิน
+          const mapped = data.activities.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            category: item.activityType || 'ชั่วโมงวิชาชีพ / สหกิจศึกษา (สาขา)',
+            dateStr: new Date(item.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
+            timeStr: `${item.startTime || '09:00'} - ${item.endTime || '16:00'} น.`,
+            location: item.location || 'มหาวิทยาลัยแม่โจ้',
+            hours: item.hours,
+            capacity: item.capacity,
+            status: item.status || 'OPEN',
+          }));
+          setPublishedList(mapped);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('API fetch activities failed, fallback to local storage:', err);
+    }
+
+    // Fallback โหมด LocalStorage
     const saved = localStorage.getItem('csmju_published_activities');
     if (saved) {
       try {
         setPublishedList(JSON.parse(saved));
       } catch (e) {
-        setPublishedList(DEFAULT_PUBLISHED);
+        setPublishedList([]);
       }
-    } else {
-      setPublishedList(DEFAULT_PUBLISHED);
-      localStorage.setItem('csmju_published_activities', JSON.stringify(DEFAULT_PUBLISHED));
     }
   };
 
