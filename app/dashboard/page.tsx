@@ -239,10 +239,10 @@ export default function StudentDashboardPage() {
   return (
     <div className="space-y-8 pb-16 max-w-7xl mx-auto px-4 sm:px-6">
       {/* 1. ส่วนหัวแบนเนอร์ */}
-      <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-8 md:p-10 shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-slate-700">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0F172A] via-[#1D4ED8] to-[#2563EB] border border-blue-400/20 p-8 md:p-10 shadow-2xl shadow-blue-900/20 transition-all duration-300 hover:shadow-2xl hover:border-slate-700">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 border border-white/20 text-blue-100 backdrop-blur-sm text-xs font-semibold">
               นักศึกษา รหัส 67 • 
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
@@ -256,7 +256,7 @@ export default function StudentDashboardPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setIsSubmitModalOpen(true)}
-              className="px-5 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl text-xs font-bold transition-all duration-200 shadow-lg hover:shadow-blue-500/25 inline-flex items-center gap-2 cursor-pointer"
+              className="px-5 py-3 bg-white hover:bg-blue-50 active:scale-95 text-blue-700 rounded-2xl text-xs font-bold transition-all duration-200 shadow-lg hover:shadow-blue-500/25 inline-flex items-center gap-2 cursor-pointer"
             >
               <span>+ ยื่นขอชั่วโมงกิจกรรม</span>
             </button>
@@ -267,7 +267,7 @@ export default function StudentDashboardPage() {
       {/* 2. สรุปชั่วโมง */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* การ์ด 1: สหกิจศึกษา */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white p-5 border border-slate-200/80 shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-blue-300 hover:bg-gradient-to-b hover:from-white hover:to-blue-50/40 active:scale-98 flex flex-col justify-between cursor-pointer">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-5 border border-blue-200 shadow-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-blue-300 hover:bg-gradient-to-b hover:from-white hover:to-blue-50/40 active:scale-98 flex flex-col justify-between cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-blue-600 uppercase tracking-wider group-hover:text-blue-700 transition-colors">
               ชั่วโมงวิชาชีพ / สหกิจ (สาขา)
@@ -278,7 +278,7 @@ export default function StudentDashboardPage() {
               </span>
             ) : (
               <span className="text-xs text-blue-400 group-hover:scale-125 transition-transform duration-300">
-                💼
+                
               </span>
             )}
           </div>
@@ -299,13 +299,13 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* การ์ด 2: จิตอาสา */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white p-5 border border-slate-200/80 shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-emerald-300 hover:bg-gradient-to-b hover:from-white hover:to-emerald-50/40 active:scale-98 flex flex-col justify-between cursor-pointer">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-5 border border-blue-200 shadow-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-emerald-400 hover:bg-gradient-to-br hover:from-emerald-50 hover:via-white hover:to-teal-50 active:scale-98 flex flex-col justify-between cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider group-hover:text-emerald-700 transition-colors">
               ชั่วโมงจิตอาสา
             </span>
             <span className="text-xs text-emerald-400 group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300">
-              🌱
+              
             </span>
           </div>
           <div className="my-2.5">
@@ -320,13 +320,13 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* การ์ด 3: กำหนดการฝึกงาน รหัส 67 */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white p-5 border border-slate-200/80 shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-amber-300 hover:bg-gradient-to-b hover:from-white hover:to-amber-50/40 active:scale-98 flex flex-col justify-between cursor-pointer">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-5 border border-blue-200 shadow-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-amber-400 hover:bg-gradient-to-br hover:from-amber-50 hover:via-white hover:to-orange-50 active:scale-98 flex flex-col justify-between cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-600 uppercase tracking-wider group-hover:text-amber-700 transition-colors">
               กำหนดการฝึกงาน รหัส 67
             </span>
             <span className="text-xs text-amber-400 group-hover:scale-125 transition-transform duration-300">
-              🗓️
+              
             </span>
           </div>
           <div className="my-1 text-xs text-slate-700 space-y-1">
@@ -345,13 +345,13 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* การ์ด 4: นับถอยหลังสู่วันฝึกงาน */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white p-5 border border-slate-200/80 shadow-xs transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-indigo-300 hover:bg-gradient-to-b hover:from-white hover:to-indigo-50/40 active:scale-98 flex flex-col justify-between cursor-pointer">
+        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-5 border border-blue-200 shadow-sm transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-xl hover:border-indigo-400 hover:bg-gradient-to-br hover:from-indigo-50 hover:via-white hover:to-violet-50 active:scale-98 flex flex-col justify-between cursor-pointer">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider group-hover:text-indigo-700 transition-colors">
               นับถอยหลังสู่วันฝึกงาน
             </span>
             <span className="text-xs text-indigo-400 group-hover:scale-125 group-hover:-rotate-12 transition-transform duration-300">
-              ⏳
+              
             </span>
           </div>
           <div className="my-2.5 flex items-baseline gap-1.5">
@@ -367,11 +367,11 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* 3. กิจกรรมของหลักสูตรที่เปิดรับสมัคร */}
-      <div className="rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-4">
+      <div className="rounded-3xl bg-white p-6 border border-blue-100 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>📢</span> กิจกรรมของหลักสูตรที่เปิดรับสมัคร
+              <span></span> กิจกรรมของหลักสูตรที่เปิดรับสมัคร
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               กิจกรรมที่อาจารย์ประกาศเปิดรับผ่านฐานข้อมูลหลักสูตร
@@ -418,10 +418,10 @@ export default function StudentDashboardPage() {
                   </div>
                   <h3 className="text-sm font-bold text-slate-800 leading-snug">{act.title}</h3>
                   <div className="space-y-1 text-xs text-slate-500">
-                    <p>🗓️ <b>วันที่:</b> {act.dateStr}</p>
-                    <p>📍 <b>สถานที่:</b> {act.location}</p>
+                    <p> <b>วันที่:</b> {act.dateStr}</p>
+                    <p><b>สถานที่:</b> {act.location}</p>
                     <p>
-                      👥 <b>จำนวนผู้สมัคร:</b>{' '}
+                      <b>จำนวนผู้สมัคร:</b>{' '}
                       <span className={`font-bold ${isFull ? 'text-rose-600' : 'text-slate-700'}`}>
                         {currentRegistered} / {act.capacity} คน
                       </span>
@@ -436,9 +436,9 @@ export default function StudentDashboardPage() {
                         ✓ ลงทะเบียนแล้ว
                       </span>
                     ) : isClosed ? (
-                      <span className="text-xs font-bold text-rose-500">🔴 ปิดรับสมัครแล้ว</span>
+                      <span className="text-xs font-bold text-rose-500">ปิดรับสมัครแล้ว</span>
                     ) : isFull ? (
-                      <span className="text-xs font-bold text-amber-600">⚠️ ที่นั่งเต็มแล้ว</span>
+                      <span className="text-xs font-bold text-amber-600">ที่นั่งเต็มแล้ว</span>
                     ) : (
                       <span className="text-xs text-slate-400">เปิดรับสมัครอยู่</span>
                     )}
@@ -453,7 +453,7 @@ export default function StudentDashboardPage() {
                         ? 'bg-rose-100 hover:bg-rose-200 text-rose-700'
                         : isClosed || isFull
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-md shadow-blue-500/20'
                     }`}
                   >
                     {isRegistered ? 'ยกเลิกการลงทะเบียน' : isFull ? 'เต็มแล้ว' : 'กดลงทะเบียนเข้าร่วม'}
@@ -468,7 +468,7 @@ export default function StudentDashboardPage() {
       {/* 4. ตารางปฏิทินและประวัติรายการที่ยื่น */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* ปฏิทิน */}
-        <div className="lg:col-span-5 rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-4 transition-all duration-300 hover:shadow-md">
+        <div className="lg:col-span-5 rounded-3xl bg-white p-6 border border-blue-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-sm font-bold text-slate-800 uppercase">ปฏิทินการฝึกงาน</h2>
             <span className="text-xs text-slate-500">{THAI_MONTHS[viewMonth]} {viewYear + 543}</span>
@@ -488,7 +488,7 @@ export default function StudentDashboardPage() {
                   key={`day-${day}`}
                   className={`py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
                     isToday
-                      ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30 scale-105'
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold shadow-lg shadow-blue-500/30 scale-105'
                       : 'text-slate-700 hover:bg-slate-100 hover:scale-105'
                   }`}
                 >
@@ -501,7 +501,7 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* ประวัติกิจกรรมของฉัน */}
-        <div className="lg:col-span-7 rounded-3xl bg-white p-6 border border-slate-200 shadow-xs space-y-4 transition-all duration-300 hover:shadow-md">
+        <div className="lg:col-span-7 rounded-3xl bg-white p-6 border border-blue-100 shadow-sm space-y-4 transition-all duration-300 hover:shadow-md">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-sm font-bold text-slate-800 uppercase">ประวัติกิจกรรมของฉัน ({activities.length})</h2>
             <button
@@ -559,7 +559,7 @@ export default function StudentDashboardPage() {
 
       {/* Modal ยื่นคำร้องขอชั่วโมง */}
       {isSubmitModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl scale-in-95 duration-200">
             <div className="flex justify-between items-center pb-2 border-b">
               <h3 className="text-sm font-bold text-slate-800">ยื่นคำร้องขอชั่วโมงกิจกรรม</h3>
@@ -658,7 +658,7 @@ export default function StudentDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
+                  className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition cursor-pointer"
                 >
                   ส่งให้อาจารย์ตรวจสอบ
                 </button>
@@ -670,7 +670,7 @@ export default function StudentDashboardPage() {
 
       {/* Modal ดูรายละเอียดคำร้อง */}
       {selectedActivityDetail && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-3 shadow-2xl scale-in-95 duration-200">
             <div className="flex justify-between items-center border-b pb-2">
               <h3 className="text-sm font-bold text-slate-800">รายละเอียดคำร้อง</h3>
