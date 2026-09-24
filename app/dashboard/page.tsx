@@ -243,7 +243,7 @@ export default function StudentDashboardPage() {
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">
-              นักศึกษา รหัส 67 • เชื่อมต่อฐานข้อมูล PostgreSQL ผ่าน Prisma แล้ว
+              นักศึกษา รหัส 67 • 
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
               นางสาวพัฒน์นรี วันพิลา
