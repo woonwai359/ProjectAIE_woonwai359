@@ -4,15 +4,14 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { activityId, action } = body; // action: 'REGISTER' หรือ 'CANCEL'
+    const { activityId, action } = body; // action: 'REGISTER' | 'CANCEL'
+    const studentUsername = '6704101359'; // รหัสนักศึกษาปัจจุบัน
 
     if (!activityId) {
       return NextResponse.json({ success: false, error: 'Missing activityId' }, { status: 400 });
     }
 
-    const studentUsername = '6704101359';
-
-    // ค้นหาโปรไฟล์นักศึกษา
+    // 1. ค้นหาโปรไฟล์นักศึกษา
     let userProfile = await prisma.userProfile.findFirst({
       where: { studentCode: studentUsername },
     });
@@ -29,60 +28,72 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === 'CANCEL') {
-      // กรณียกเลิกการลงทะเบียน
+    // 2. ค้นหากิจกรรม
+    const activity = await prisma.activity.findUnique({
+      where: { id: activityId },
+    });
+
+    if (!activity) {
+      return NextResponse.json({ success: false, error: 'Activity not found' }, { status: 404 });
+    }
+
+    if (action === 'REGISTER') {
+      // 3. ตรวจสอบว่าเคยลงทะเบียนหรือยัง
+      const existing = await prisma.participation.findFirst({
+        where: { studentUsername, activityId },
+      });
+
+      if (!existing) {
+        // สร้าง id สุ่มขึ้นมาเองเพื่อป้องกัน Error เรื่อง Argument id is missing
+        await prisma.participation.create({
+          data: {
+            id: `part-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            studentUsername,
+            activityId,
+          } as any,
+        });
+      }
+
+      // 4. บันทึกชั่วโมงสะสมใน HourRequest ถ้ายังไม่มี
+      const existingReq = await prisma.hourRequest.findFirst({
+        where: { userId: userProfile.id, title: activity.title },
+      });
+
+      if (!existingReq) {
+        const isCoop = activity.activityType?.includes('สหกิจ');
+        await prisma.hourRequest.create({
+          data: {
+            userId: userProfile.id,
+            title: activity.title,
+            dateStr: new Date(activity.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
+            timeStr: `${activity.startTime ? new Date(activity.startTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '09:00'} - 16:00 น.`,
+            type: 'กิจกรรมของหลักสูตร',
+            typeCategory: isCoop ? 'COOP' : 'VOLUNTEER',
+            hours: Number(activity.hours) || 1,
+            status: 'APPROVED',
+            statusText: 'อนุมัติแล้ว (กิจกรรมหลักสูตร)',
+            approvedHours: Number(activity.hours) || 1,
+            approvedCategory: isCoop ? 'COOP' : 'VOLUNTEER',
+            note: `สถานที่: ${activity.location || 'มหาวิทยาลัยแม่โจ้'}`,
+          },
+        });
+      }
+
+    } else if (action === 'CANCEL') {
+      // 5. ยกเลิกการลงทะเบียน
       await prisma.participation.deleteMany({
-        where: { activityId, studentUsername },
+        where: { studentUsername, activityId },
       });
-      // ลบคำร้องที่ผูกกับกิจกรรมนี้ออกด้วยเพื่อให้ชั่วโมงถูกดึงกลับ
+
+      // 6. ลบชั่วโมงออก
       await prisma.hourRequest.deleteMany({
-        where: { userId: userProfile.id, note: { contains: activityId } },
-      });
-      return NextResponse.json({ success: true, message: 'Cancelled successfully' });
-    }
-
-    // กรณีลงทะเบียนปกติ
-    const existing = await prisma.participation.findUnique({
-      where: {
-        activityId_studentUsername: { activityId, studentUsername },
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json({ success: false, error: 'Already registered' }, { status: 400 });
-    }
-
-    const participation = await prisma.participation.create({
-      data: {
-        id: `reg-${Date.now()}`,
-        activityId,
-        studentUsername,
-      },
-    });
-
-    // ดึงข้อมูลกิจกรรมเพื่อสร้าง HourRequest รอการอนุมัติจากอาจารย์
-    const activityInfo = await prisma.activity.findUnique({ where: { id: activityId } });
-    if (activityInfo) {
-      const isCoop = activityInfo.activityType.includes('สหกิจ');
-      await prisma.hourRequest.create({
-        data: {
-          userId: userProfile.id,
-          title: activityInfo.title,
-          dateStr: new Date(activityInfo.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
-          timeStr: '09:00 - 16:00',
-          type: 'กิจกรรมของหลักสูตร',
-          typeCategory: isCoop ? 'COOP' : 'VOLUNTEER',
-          hours: activityInfo.hours,
-          status: 'PENDING_APPROVAL',
-          statusText: 'ลงทะเบียนแล้ว (รอเช็คชื่อ)',
-          note: `กิจกรรมหลักสูตร [ID: ${activityId}] สถานที่: ${activityInfo.location}`,
-        },
+        where: { userId: userProfile.id, title: activity.title },
       });
     }
 
-    return NextResponse.json({ success: true, data: participation });
-  } catch (error) {
-    console.error('API Register Error:', error);
-    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('=== API REGISTER ERROR ===', error);
+    return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -19,13 +19,13 @@ export interface PublishedActivity {
 export default function AdminActivitiesPage() {
   const [publishedList, setPublishedList] = useState<PublishedActivity[]>([]);
 
+  // โหลดข้อมูลจาก Database โดยตรง
   const loadActivities = async () => {
     try {
       const res = await fetch('/api/admin/activities', { method: 'GET', cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data?.activities && Array.isArray(data.activities)) {
-          // แปลงรูปแบบข้อมูลจาก Prisma ให้ตรงกับหน้าจอแอดมิน
           const mapped = data.activities.map((item: any) => ({
             id: item.id,
             title: item.title,
@@ -38,21 +38,10 @@ export default function AdminActivitiesPage() {
             status: item.status || 'OPEN',
           }));
           setPublishedList(mapped);
-          return;
         }
       }
     } catch (err) {
-      console.warn('API fetch activities failed, fallback to local storage:', err);
-    }
-
-    // Fallback โหมด LocalStorage
-    const saved = localStorage.getItem('csmju_published_activities');
-    if (saved) {
-      try {
-        setPublishedList(JSON.parse(saved));
-      } catch (e) {
-        setPublishedList([]);
-      }
+      console.error('API fetch activities failed:', err);
     }
   };
 
@@ -62,18 +51,62 @@ export default function AdminActivitiesPage() {
     return () => window.removeEventListener('csmju_activity_updated', loadActivities);
   }, []);
 
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
+    const activity = publishedList.find((a) => a.id === id);
+    if (!activity) return;
+
+    const newStatus = activity.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+
+    // อัปเดตหน้าจอทันที
     const updated = publishedList.map((item) => {
       if (item.id === id) {
-        return {
-          ...item,
-          status: (item.status === 'OPEN' ? 'CLOSED' : 'OPEN') as 'OPEN' | 'CLOSED',
-        };
+        return { ...item, status: newStatus as 'OPEN' | 'CLOSED' };
       }
       return item;
     });
     setPublishedList(updated);
-    localStorage.setItem('csmju_published_activities', JSON.stringify(updated));
+
+    // ยิง API เพื่อบันทึกการเปลี่ยนสถานะในฐานข้อมูล
+    try {
+      await fetch('/api/admin/activities/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+    } catch (e) {
+      console.error('Failed to update status in DB', e);
+    }
+  };
+
+  // ฟังก์ชันลบกิจกรรม โดยยิง API ไปลบที่ฐานข้อมูลจริง
+  const handleDeleteActivity = async (act: PublishedActivity) => {
+    if (!confirm(`คุณต้องการลบกิจกรรม "${act.title}" ออกจากระบบถาวร ใช่หรือไม่?`)) return;
+
+    try {
+      // 1. ส่งคำขอลบไปยัง API ฐานข้อมูล
+      const res = await fetch(`/api/admin/activities?id=${act.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        alert('เกิดข้อผิดพลาดในการลบข้อมูลจากฐานข้อมูล');
+        return;
+      }
+
+      // 2. ลบออกจากหน้าจอทันทีเมื่อฐานข้อมูลลบสำเร็จ
+      const updatedList = publishedList.filter((item) => item.id !== act.id);
+      setPublishedList(updatedList);
+
+      // กระตุ้นให้หน้าอื่นที่เปิดอยู่รีเฟรชข้อมูลจาก DB ใหม่
+      window.dispatchEvent(new Event('csmju_activity_updated'));
+      window.dispatchEvent(new Event('csmju_hours_updated'));
+
+      alert('ลบกิจกรรมออกจากฐานข้อมูลเรียบร้อยแล้ว');
+      
+    } catch (err) {
+      console.error('Delete activity failed:', err);
+      alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อลบข้อมูลได้');
+    }
   };
 
   return (
@@ -153,6 +186,13 @@ export default function AdminActivitiesPage() {
                           }`}
                         >
                           {isOpen ? 'ปิดรับ' : 'เปิดรับ'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteActivity(act)}
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-bold transition cursor-pointer"
+                        >
+                          🗑️ ลบ
                         </button>
                       </div>
                     </td>

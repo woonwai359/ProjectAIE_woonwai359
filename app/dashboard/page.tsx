@@ -41,64 +41,6 @@ export interface PublishedActivity {
   status: 'OPEN' | 'CLOSED';
 }
 
-const DEFAULT_ACTIVITIES: ActivityItem[] = [
-  {
-    id: '1',
-    dateStr: '10 ก.ย. 2569',
-    timeStr: '09:00 - 16:00',
-    title: 'อบรมการพัฒนาเว็บแอปพลิเคชัน Next.js ขั้นสูง',
-    categoryTarget: 'COOP',
-    typeDetail: 'กิจกรรมภายนอก (คอมพิวเตอร์)',
-    status: 'APPROVED',
-    statusText: 'อนุมัติแล้ว',
-    hours: 6,
-    approvedHours: 6,
-    approvedCategory: 'COOP',
-    imageProof: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&auto=format&fit=crop&q=60',
-    note: 'อบรมเสริมทักษะวิชาชีพคอมพิวเตอร์',
-  },
-  {
-    id: '2',
-    dateStr: '5 ก.ย. 2569',
-    timeStr: '08:30 - 12:30',
-    title: 'กิจกรรมปลูกป่าเฉลิมพระเกียรติและพัฒนาชุมชนแม่โจ้',
-    categoryTarget: 'VOLUNTEER',
-    typeDetail: 'กิจกรรมจิตอาสา',
-    status: 'APPROVED',
-    statusText: 'อนุมัติแล้ว',
-    hours: 4,
-    approvedHours: 4,
-    approvedCategory: 'VOLUNTEER',
-    imageProof: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400&auto=format&fit=crop&q=60',
-    note: 'จิตอาสาบำเพ็ญประโยชน์',
-  },
-];
-
-const DEFAULT_PUBLISHED: PublishedActivity[] = [
-  {
-    id: 'seed-activity-1',
-    title: 'ค่ายอาสาพัฒนาห้องสมุดโรงเรียน (CSMJU)',
-    category: 'ชั่วโมงจิตอาสา',
-    dateStr: '25 ก.ย. 2569',
-    location: 'โรงเรียนบ้านแม่โจ้ อ.สันทราย',
-    hours: 4,
-    capacity: 30,
-    registeredCount: 12,
-    status: 'OPEN',
-  },
-  {
-    id: 'act-2',
-    title: 'อบรมเชิงปฏิบัติการ Docker & Cloud Deployment',
-    category: 'ชั่วโมงวิชาชีพ / สหกิจศึกษา (สาขา)',
-    dateStr: '30 ก.ย. 2569',
-    location: 'ห้องปฏิบัติการคอมพิวเตอร์ 2',
-    hours: 6,
-    capacity: 40,
-    registeredCount: 35,
-    status: 'OPEN',
-  },
-];
-
 export default function StudentDashboardPage() {
   const today = useMemo(() => getCurrentThailandDate(), []);
 
@@ -119,25 +61,7 @@ export default function StudentDashboardPage() {
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
   const [newNote, setNewNote] = useState('');
 
-  const safeSaveActivities = (items: ActivityItem[]) => {
-    try {
-      localStorage.setItem('csmju_shared_activities', JSON.stringify(items));
-      setActivities(items);
-    } catch (error) {
-      console.warn('Storage quota exceeded, stripping large base64...');
-      const stripped = items.map((act) => ({
-        ...act,
-        imageProof: act.imageProof?.startsWith('data:') ? undefined : act.imageProof,
-      }));
-      try {
-        localStorage.setItem('csmju_shared_activities', JSON.stringify(stripped));
-        setActivities(stripped);
-      } catch (e) {
-        alert('พื้นที่จัดเก็บข้อมูลบนเครื่องเต็ม กรุณาลบข้อมูลเก่าบางส่วน');
-      }
-    }
-  };
-
+  // โหลดข้อมูลทั้งหมดจาก API (ฐานข้อมูล PostgreSQL ผ่าน Prisma) โดยตรง
   const loadAllData = async () => {
     try {
       const response = await fetch('/api/student/dashboard', { method: 'GET', cache: 'no-store' });
@@ -146,49 +70,20 @@ export default function StudentDashboardPage() {
         if (dbData?.activities) setActivities(dbData.activities);
         if (dbData?.publishedList) setPublishedList(dbData.publishedList);
         if (dbData?.registeredIds) setRegisteredIds(dbData.registeredIds);
-        return;
       }
     } catch (err) {
-      console.warn('Fallback to local mirror storage sync:', err);
-    }
-
-    const saved = localStorage.getItem('csmju_shared_activities');
-    if (saved) {
-      try {
-        setActivities(JSON.parse(saved));
-      } catch (e) {
-        setActivities(DEFAULT_ACTIVITIES);
-      }
-    } else {
-      safeSaveActivities(DEFAULT_ACTIVITIES);
-    }
-
-    const pub = localStorage.getItem('csmju_published_activities');
-    if (pub) {
-      try {
-        setPublishedList(JSON.parse(pub));
-      } catch (e) {
-        setPublishedList(DEFAULT_PUBLISHED);
-      }
-    } else {
-      setPublishedList(DEFAULT_PUBLISHED);
-      localStorage.setItem('csmju_published_activities', JSON.stringify(DEFAULT_PUBLISHED));
-    }
-
-    const myRegs = localStorage.getItem('csmju_my_registrations');
-    if (myRegs) {
-      try {
-        setRegisteredIds(JSON.parse(myRegs));
-      } catch (e) {
-        setRegisteredIds([]);
-      }
+      console.error('Error fetching data from database:', err);
     }
   };
 
   useEffect(() => {
     loadAllData();
     window.addEventListener('csmju_activity_updated', loadAllData);
-    return () => window.removeEventListener('csmju_activity_updated', loadAllData);
+    window.addEventListener('csmju_hours_updated', loadAllData);
+    return () => {
+      window.removeEventListener('csmju_activity_updated', loadAllData);
+      window.removeEventListener('csmju_hours_updated', loadAllData);
+    };
   }, []);
 
   const handleRegisterActivity = async (act: PublishedActivity) => {
@@ -207,55 +102,26 @@ export default function StudentDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activityId: act.id, action }),
       });
-      if (!res.ok) {
-        console.warn('Server registration sync fallback');
+      if (res.ok) {
+        // โหลดข้อมูลใหม่จากฐานข้อมูลทันที เพื่อให้สถานะและชั่วโมงตรงกับ Database 100%
+        await loadAllData();
+        if (isRegistered) {
+          alert(`ยกเลิกการลงทะเบียน "${act.title}" เรียบร้อยแล้ว`);
+        } else {
+          alert(`ลงทะเบียนสำเร็จ: "${act.title}" ได้รับ ${act.hours} ชั่วโมงเรียบร้อยแล้ว!`);
+        }
+      } else {
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล');
       }
     } catch (e) {
       console.error(e);
+      alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
     }
-
-    const updatedPublished = publishedList.map((item) => {
-      if (item.id === act.id) {
-        return {
-          ...item,
-          registeredCount: isRegistered ? Math.max(0, (item.registeredCount || 1) - 1) : (item.registeredCount || 0) + 1,
-        };
-      }
-      return item;
-    });
-    setPublishedList(updatedPublished);
-    localStorage.setItem('csmju_published_activities', JSON.stringify(updatedPublished));
-
-    let nextRegs = [];
-    if (isRegistered) {
-      nextRegs = registeredIds.filter((id) => id !== act.id);
-      setActivities(activities.filter((a) => a.title !== act.title));
-      alert(`ยกเลิกการลงทะเบียน "${act.title}" เรียบร้อยแล้ว`);
-    } else {
-      nextRegs = [...registeredIds, act.id];
-      const isCoop = act.category.includes('สหกิจ');
-      const autoAct: ActivityItem = {
-        id: `reg-${Date.now()}`,
-        dateStr: act.dateStr,
-        timeStr: act.timeStr || '09:00 - 16:00',
-        title: act.title,
-        categoryTarget: isCoop ? 'COOP' : 'VOLUNTEER',
-        typeDetail: 'กิจกรรมของหลักสูตร',
-        status: 'PENDING_APPROVAL',
-        statusText: 'ลงทะเบียนแล้ว (รอเช็คชื่อ)',
-        hours: act.hours,
-        approvedHours: act.hours,
-        note: `สถานที่: ${act.location}`,
-      };
-      safeSaveActivities([autoAct, ...activities]);
-      alert(`ลงทะเบียนสำเร็จ: "${act.title}" เรียบร้อยแล้ว`);
-    }
-    setRegisteredIds(nextRegs);
-    localStorage.setItem('csmju_my_registrations', JSON.stringify(nextRegs));
   };
 
   const coopTarget = 15;
 
+  // คำนวณชั่วโมงจากข้อมูลใน State ที่ดึงมาจากฐานข้อมูลโดยตรง (ไม่มี LocalStorage)
   const coopHoursEarned = useMemo(() => {
     return activities
       .filter(
@@ -342,21 +208,23 @@ export default function StudentDashboardPage() {
     };
 
     try {
-      await fetch('/api/student/requests', {
+      const res = await fetch('/api/student/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAct),
       });
+      if (res.ok) {
+        await loadAllData();
+      }
     } catch (err) {
-      console.warn('API sync failed, saved locally');
+      console.error('API connection failed');
     }
 
-    safeSaveActivities([newAct, ...activities]);
     setIsSubmitModalOpen(false);
     setNewTitle('');
     setNewImagePreview(null);
     setNewNote('');
-    alert('ส่งคำร้องให้อาจารย์ตรวจสอบเรียบร้อยแล้ว');
+    alert('ส่งคำร้องให้อาจารย์ตรวจสอบผ่านระบบเรียบร้อยแล้ว');
   };
 
   const calendarCells = useMemo(() => {
@@ -512,6 +380,7 @@ export default function StudentDashboardPage() {
           <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
             เปิดรับสมัคร {publishedList.filter((a) => a.status === 'OPEN').length} กิจกรรม
           </span>
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -626,7 +495,8 @@ export default function StudentDashboardPage() {
                   {day}
                 </div>
               );
-            })}
+            })
+            }
           </div>
         </div>
 

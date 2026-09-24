@@ -77,32 +77,15 @@ export default function NewHourRequestPage() {
       });
 
       if (res.ok) {
-        alert('ยื่นคำร้องขอชั่วโมงกิจกรรมสำเร็จ!');
+        alert('ยื่นคำร้องขอชั่วโมงกิจกรรมเข้าสู่ฐานข้อมูลสำเร็จ!');
         router.push('/requests');
         router.refresh();
       } else {
-        // บันทึกสำรองลง LocalStorage กรณีทดสอบหน้าบ้าน
-        const saved = localStorage.getItem('csmju_shared_activities');
-        const list = saved ? JSON.parse(saved) : [];
-        list.unshift({
-          id: String(Date.now()),
-          title: payload.title,
-          type: payload.category,
-          hours: payload.hours,
-          dateStr: payload.dateStr,
-          timeStr: payload.timeStr,
-          status: 'PENDING_APPROVAL',
-          statusText: 'รอตรวจสอบ',
-          imageProof: payload.proofUrl,
-          note: payload.description,
-        });
-        localStorage.setItem('csmju_shared_activities', JSON.stringify(list));
-        alert('บันทึกคำร้องสำเร็จ!');
-        router.push('/requests');
+        alert('ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อ');
       }
     } catch (err) {
       console.error(err);
-      alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์');
     } finally {
       setLoading(false);
     }
@@ -113,7 +96,7 @@ export default function NewHourRequestPage() {
       <div className="flex items-center justify-between pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">ยื่นคำร้องขอนับชั่วโมงกิจกรรม</h1>
-          <p className="text-sm text-slate-500">กรอกข้อมูลรายละเอียดกิจกรรมและแนบหลักฐานเพื่อให้อาจารย์ตรวจสอบ</p>
+          <p className="text-sm text-slate-500">กรอกข้อมูลรายละเอียดกิจกรรมและแนบหลักฐานเพื่อให้อาจารย์ตรวจสอบผ่านฐานข้อมูล</p>
         </div>
         <Link
           href="/requests"

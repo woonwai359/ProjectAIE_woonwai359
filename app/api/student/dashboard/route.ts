@@ -10,15 +10,24 @@ export async function GET(request: Request) {
       include: { HourRequest: true },
     });
 
-    // ดึงประวัติการลงทะเบียนจริงจากตาราง Participation
+    // ดึงประวัติการลงทะเบียนจริงจากตาราง Participation ของนักศึกษา
     const participations = await prisma.participation.findMany({
       where: { studentUsername },
     });
     const registeredIds = participations.map((p) => p.activityId);
 
+    // ดึงรายการกิจกรรมทั้งหมดที่เปิดรับ
     const activitiesFromDb = await prisma.activity.findMany({
       where: { status: { in: ['OPEN', 'PUBLISHED'] } },
       orderBy: { date: 'desc' },
+    });
+
+    // ดึงข้อมูลการลงทะเบียนทั้งหมดในระบบ เพื่อเอามานับจำนวนผู้สมัครแต่ละกิจกรรม
+    const allParticipations = await prisma.participation.findMany();
+    const countMap = new Map<string, number>();
+    allParticipations.forEach((p: any) => {
+      const count = countMap.get(p.activityId) || 0;
+      countMap.set(p.activityId, count + 1);
     });
 
     const formattedActivities = (studentProfile?.HourRequest || []).map((req) => ({
@@ -48,7 +57,7 @@ export async function GET(request: Request) {
       location: act.location || 'คณะวิทยาศาสตร์ มหาวิทยาลัยแม่โจ้',
       hours: act.hours,
       capacity: act.capacity,
-      registeredCount: 0,
+      registeredCount: countMap.get(act.id) || 0, // นับจำนวนผู้สมัครจริงจากตาราง Participation
       status: act.status === 'OPEN' || act.status === 'PUBLISHED' ? 'OPEN' : 'CLOSED',
     }));
 

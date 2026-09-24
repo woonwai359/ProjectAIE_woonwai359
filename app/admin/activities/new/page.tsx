@@ -21,18 +21,8 @@ export default function CreateActivityPage() {
     e.preventDefault();
     if (!title.trim()) return;
 
-    let formattedDate = dateStr;
-    if (dateStr) {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const [year, month, day] = parts;
-        const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-        const thaiYear = parseInt(year || '2026', 10) + 543;
-        const monthIndex = parseInt(month || '1', 10) - 1;
-        formattedDate = `${parseInt(day || '1', 10)} ${thaiMonths[monthIndex]} ${thaiYear}`;
-      }
-    }
-
+    // ส่งวันที่แบบ YYYY-MM-DD ตรงๆ ไปให้ API เพื่อให้ Prisma แปลงเป็น DateTime ได้อย่างถูกต้องแม่นยำ
+    const rawDate = dateStr || new Date().toISOString().split('T')[0];
     const timeStr = `${startTime} - ${endTime} น.`;
 
     const activityData = {
@@ -40,7 +30,7 @@ export default function CreateActivityPage() {
       description,
       category,
       hours: Number(hours) || 1,
-      dateStr: formattedDate,
+      dateStr: rawDate,
       timeStr,
       location,
       capacity: Number(capacity) || 30,
@@ -54,7 +44,9 @@ export default function CreateActivityPage() {
         body: JSON.stringify(activityData),
       });
 
-      if (res.ok) {
+      const result = await res.json();
+
+      if (res.ok && result.success) {
         // สำรองเก็บบันทึกลง localStorage ไว้แสดงผลร่วมด้วย
         const saved = localStorage.getItem('csmju_published_activities');
         const current = saved ? JSON.parse(saved) : [];
@@ -66,7 +58,7 @@ export default function CreateActivityPage() {
         alert('ประกาศกิจกรรมใหม่ลงฐานข้อมูลสำเร็จ!');
         router.push('/admin/activities');
       } else {
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล');
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล: ' + (result.error || ''));
       }
     } catch (err) {
       console.error(err);

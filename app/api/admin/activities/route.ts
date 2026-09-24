@@ -1,12 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export async function GET() {
+  try {
+    const activities = await prisma.activity.findMany({
+      orderBy: { date: 'desc' },
+    });
+    return NextResponse.json({ success: true, activities });
+  } catch (error) {
+    console.error('Get Activities API Error:', error);
+    return NextResponse.json({ success: false, activities: [] }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { title, description, category, hours, dateStr, timeStr, location, capacity } = body;
 
-    // แปลงวันที่จัดกิจกรรมให้เป็น Date Object
     let activityDate = new Date();
     if (dateStr && dateStr.includes('-') && dateStr.length === 10) {
       activityDate = new Date(dateStr);
@@ -15,7 +26,6 @@ export async function POST(request: Request) {
       activityDate = new Date();
     }
 
-    // แยกช่วงเวลาและแปลงให้เป็น DateTime ของ Prisma (ใช้วันที่เดียวกันแต่เปลี่ยนชั่วโมง/นาที)
     let startDateTime = new Date(activityDate);
     let endDateTime = new Date(activityDate);
 
@@ -32,7 +42,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // บันทึกลงฐานข้อมูลผ่าน Prisma
     const newActivity = await prisma.activity.create({
       data: {
         title: title || 'ไม่มีชื่อกิจกรรม',
@@ -40,8 +49,8 @@ export async function POST(request: Request) {
         activityType: category || 'ชั่วโมงวิชาชีพ / สหกิจศึกษา (สาขา)',
         hours: Number(hours) || 1,
         date: activityDate,
-        startTime: startDateTime, // ส่งเป็น DateTime ตามที่ schema บังคับ
-        endTime: endDateTime,     // ส่งเป็น DateTime ตามที่ schema บังคับ
+        startTime: startDateTime,
+        endTime: endDateTime,
         location: location || 'คณะวิทยาศาสตร์ มหาวิทยาลัยแม่โจ้',
         capacity: Number(capacity) || 30,
         status: 'OPEN',
@@ -61,14 +70,43 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+// เพิ่มฟังก์ชัน DELETE เพื่อให้ลบกิจกรรมแล้วเคลียร์ข้อมูลลูกไม่ให้ติด Error ฐานข้อมูล
+export async function DELETE(request: Request) {
   try {
-    const activities = await prisma.activity.findMany({
-      orderBy: { date: 'desc' },
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Missing activity ID' }, { status: 400 });
+    }
+
+    const activity = await prisma.activity.findUnique({
+      where: { id },
     });
-    return NextResponse.json({ success: true, activities });
-  } catch (error) {
-    console.error('Get Activities API Error:', error);
-    return NextResponse.json({ success: false, activities: [] }, { status: 500 });
+
+    if (activity) {
+      // 1. เคลียร์ข้อมูลการลงทะเบียนใน Participation ออกก่อน
+      await prisma.participation.deleteMany({
+        where: { activityId: id },
+      });
+
+      // 2. เคลียร์ชั่วโมงสะสมใน HourRequest ของกิจกรรมนี้ออก
+      await prisma.hourRequest.deleteMany({
+        where: { title: activity.title },
+      });
+    }
+
+    // 3. ลบตัวกิจกรรมหลักสำเร็จ
+    await prisma.activity.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true, message: 'Activity deleted successfully' });
+  } catch (error: any) {
+    console.error('=== DELETE ACTIVITY API ERROR ===', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

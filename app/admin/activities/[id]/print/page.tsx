@@ -1,63 +1,65 @@
 import Link from 'next/link';
-import { getPrintRoster } from '@/lib/queries';
+import { prisma } from '@/lib/prisma';
 import { formatThaiDate, formatThaiDateTime } from '@/lib/utils';
 import { PrintButton } from '@/components/PrintButton';
 
 export const dynamic = 'force-dynamic';
 
-interface RosterStudentItem {
-  registrationId: string;
-  username: string;
-  displayName: string | null;
-  yearLevel?: number | null;
-  major?: string | null;
-}
-
 export default async function PrintAttendanceSheetPage({ params }: { params: { id: string } }) {
-  let roster = null;
-  try {
-    roster = await getPrintRoster(params.id);
-  } catch (err) {
-    console.error('Error fetching roster:', err);
+  // 1. ดึงข้อมูลกิจกรรมจากฐานข้อมูลตาม ID
+  const activity = await prisma.activity.findUnique({
+    where: { id: params.id },
+  });
+
+  if (!activity) {
+    return (
+      <div className="max-w-xl mx-auto p-12 text-center space-y-4">
+        <h1 className="text-xl font-bold text-slate-800">ไม่พบข้อมูลกิจกรรมนี้ในระบบฐานข้อมูล</h1>
+        <Link href="/admin/activities" className="text-blue-600 underline text-sm">
+          กลับสู่หน้ารายการกิจกรรม
+        </Link>
+      </div>
+    );
   }
 
-  const rawActivity = roster?.activity as any;
-  const activity = {
-    id: rawActivity?.id ?? params.id,
-    title: rawActivity?.title ?? 'ค่ายอาสาพัฒนาห้องสมุดโรงเรียน (CSMJU)',
-    location: rawActivity?.location ?? 'โรงเรียนบ้านแม่โจ้ อ.สันทราย จ.เชียงใหม่',
-    lecturerInCharge: rawActivity?.lecturerInCharge ?? rawActivity?.createdByUsername ?? 'ผศ.ดร.กมลวรรณ ศรีวิไล',
-    startTime: rawActivity?.startTime ?? new Date(),
-    endTime: rawActivity?.endTime ?? new Date(),
-    hours: rawActivity?.hours ?? 4,
-    coopHours: rawActivity?.coopHours ?? 0,
-    volunteerHours: rawActivity?.volunteerHours ?? 0,
-  };
+  // 2. ดึงรายชื่อนักศึกษาที่ลงทะเบียนกิจกรรมนี้จากตาราง Participation โดยตรง
+  const participations = await prisma.participation.findMany({
+    where: { activityId: params.id },
+  });
 
-  const seated: RosterStudentItem[] = (roster?.seated as any[]) || [
-    { registrationId: 'reg-1', username: '6704101359', displayName: 'นางสาวพัฒน์นรี วันพิลา', yearLevel: 3, major: 'วิทยาการคอมพิวเตอร์' },
-    { registrationId: 'reg-2', username: '6512345678', displayName: 'นายสมชาย ใจดี', yearLevel: 3, major: 'วิทยาการคอมพิวเตอร์' },
-    { registrationId: 'reg-3', username: '6704101302', displayName: 'นายกิตติกร สมบูรณ์', yearLevel: 3, major: 'วิทยาการคอมพิวเตอร์' },
-  ];
+  // 3. ดึงข้อมูลโปรไฟล์ของนักศึกษาแต่ละคนตามรหัส (studentUsername)
+  const studentUsernames = participations.map((p: any) => p.studentUsername);
+  const profiles = await prisma.userProfile.findMany({
+    where: { studentCode: { in: studentUsernames } },
+  });
 
-  const waiting: RosterStudentItem[] = (roster?.waiting as any[]) || [];
+  // สร้าง Map สำหรับจับคู่ข้อมูลโปรไฟล์นักศึกษา
+  const profileMap = new Map(profiles.map((prof: any) => [prof.studentCode, prof]));
+
+  // จัดรูปแบบข้อมูลรายชื่อสำหรับแสดงในตาราง
+  const seated = participations.map((p: any, index: number) => {
+    const student = profileMap.get(p.studentUsername) as any;
+    return {
+      registrationId: p.id,
+      username: p.studentUsername,
+      displayName: student?.fullName || 'นักศึกษา',
+      yearLevel: 3,
+      major: student?.major || 'วิทยาการคอมพิวเตอร์',
+    };
+  });
 
   const hourParts = [
-    activity.coopHours > 0 ? `สหกิจ ${activity.coopHours} ชม.` : null,
-    activity.volunteerHours > 0 ? `จิตอาสา ${activity.volunteerHours} ชม.` : null,
-    activity.hours > 0 ? `${activity.hours} ชม.` : null,
+    activity.hours > 0 ? `${activity.hours} ชั่วโมง` : null,
   ].filter(Boolean);
-
-  const waitingRows: (RosterStudentItem | null)[] = Array.from({ length: 5 }, (_, i) => waiting[i] ?? null);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-4">
       <div className="no-print flex items-center justify-between">
         <Link
-          href="/admin/requests"
+          href="/admin/activities"
           className="text-xs font-bold text-slate-500 hover:text-slate-800"
         >
-          &larr; กลับหน้ารายการคำขอ
+          &larr; กลับหน้ารายการกิจกรรม
         </Link>
         <PrintButton />
       </div>
@@ -72,20 +74,16 @@ export default async function PrintAttendanceSheetPage({ params }: { params: { i
             <div className="flex gap-2">
               <dt className="font-bold text-slate-500">วัน/เวลา:</dt>
               <dd>
-                {formatThaiDateTime(activity.startTime)} – {formatThaiDate(activity.endTime)}
+                {formatThaiDateTime(activity.date)} – {formatThaiDate(activity.date)}
               </dd>
             </div>
             <div className="flex gap-2">
               <dt className="font-bold text-slate-500">สถานที่:</dt>
-              <dd>{activity.location}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="font-bold text-slate-500">อาจารย์ผู้รับผิดชอบ:</dt>
-              <dd>{activity.lecturerInCharge}</dd>
+              <dd>{activity.location || 'มหาวิทยาลัยแม่โจ้'}</dd>
             </div>
             <div className="flex gap-2">
               <dt className="font-bold text-slate-500">ชั่วโมงที่ได้รับ:</dt>
-              <dd>{hourParts.length > 0 ? hourParts.join(' · ') : `${activity.hours} ชั่วโมง`}</dd>
+              <dd>{hourParts.join(' · ') || `${activity.hours} ชั่วโมง`}</dd>
             </div>
           </dl>
         </header>
@@ -102,7 +100,7 @@ export default async function PrintAttendanceSheetPage({ params }: { params: { i
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {seated.map((row, i) => (
+            {seated.map((row: any, i: number) => (
               <tr key={row.registrationId || i}>
                 <td className="py-2.5 px-2 text-center">{i + 1}</td>
                 <td className="py-2.5 px-2 font-mono font-medium">{row.username}</td>
@@ -117,40 +115,12 @@ export default async function PrintAttendanceSheetPage({ params }: { params: { i
             {seated.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-slate-400">
-                  ไม่มีผู้ลงทะเบียนที่ได้ที่นั่ง
+                  ยังไม่มีนักศึกษาลงทะเบียนในกิจกรรมนี้
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-
-        <section className="space-y-2 border-t-2 border-dashed border-slate-300 pt-4">
-          <h2 className="text-xs font-bold text-slate-700">
-            รายชื่อคิวสำรอง (สำหรับกรณีผู้เข้าร่วมหลักไม่มาตามนัด — สูงสุด 5 คน)
-          </h2>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-300 text-left bg-slate-50">
-                <th className="w-12 py-2 px-2 text-center">คิวที่</th>
-                <th className="w-28 py-2 px-2">รหัส นศ.</th>
-                <th className="py-2 px-2">ชื่อ-สกุล</th>
-                <th className="w-32 py-2 px-2 text-center">ช่องเซ็นชื่อเข้า</th>
-                <th className="w-20 py-2 px-2">หมายเหตุ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {waitingRows.map((row, i) => (
-                <tr key={row?.registrationId ?? `blank-${i}`}>
-                  <td className="py-2 px-2 text-center">{i + 1}</td>
-                  <td className="py-2 px-2 font-mono">{row?.username ?? ''}</td>
-                  <td className="py-2 px-2">{row?.displayName ?? ''}</td>
-                  <td className="py-2 px-2 text-center text-slate-300">..............................</td>
-                  <td className="py-2 px-2">&nbsp;</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
 
         <footer className="flex justify-between border-t border-slate-200 pt-4 text-[10px] text-slate-400">
           <span>เอกสารสร้างโดยระบบ CSMJU Co-op Prep &amp; Activity Hours Tracking System</span>
