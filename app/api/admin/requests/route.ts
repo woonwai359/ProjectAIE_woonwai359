@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const requests = await prisma.hourRequest.findMany({
       include: {
-        UserProfile: true, // ใช้ U ใหญ่ตาม schema.prisma
+        userProfile: true,
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // ต้องใช้ key เป็น requests เพื่อให้ตรงกับหน้าเว็บของอาจารย์
     return NextResponse.json({ success: true, requests });
   } catch (error: any) {
     console.error('Admin Get Requests Error:', error);
@@ -31,6 +30,7 @@ export async function POST(request: Request) {
         approvedHours: approvedHours !== undefined ? Number(approvedHours) : undefined,
         approvedCategory: approvedCategory || undefined,
         rejectReason: status === 'REJECTED' ? rejectReason : null,
+        rejectionReason: status === 'REJECTED' ? rejectReason : null,
       },
     });
 

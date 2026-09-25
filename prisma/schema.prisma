@@ -7,177 +7,173 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Local mirror of a CSMJU2030 identity the moment it first touches this
-/// subsystem. `username` is the shared identity key from the JWT
-/// (`x-user-id`). Everything else here is local (layer2) data.
-model UserProfile {
-  id          String        @id @default(cuid())
-  studentCode String        @unique
-  fullName    String
-  email       String?       @unique
-  role        String        @default("student")
-  faculty     String        @default("วิทยาศาสตร์")
-  major       String        @default("วิทยาการคอมพิวเตอร์")
-  createdAt   DateTime      @default(now())
-  HourRequest HourRequest[]
-}
-
 model Activity {
-  id                String          @id @default(cuid())
-  title             String
-  description       String?
-  activityType      String
-  date              DateTime
-  startTime         DateTime
-  endTime           DateTime
-  location          String?
-  capacity          Int
-  hours             Int
-  coOpEligible      Boolean         @default(true)
-  registrationOpen  DateTime
-  registrationClose DateTime
-  status            ActivityStatus  @default(DRAFT)
-  createdByUsername String
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  Participation     Participation[]
+  id                   String          @id @default(cuid())
+  title                String
+  description          String
+  location             String          @default("")
+  activityType         String          @default("GENERAL") @map("activity_type")
+  date                 DateTime        @default(now())
+  startTime            DateTime        @default(now()) @map("start_time")
+  endTime              DateTime        @default(now()) @map("end_time")
+  registrationOpen     DateTime        @default(now()) @map("registration_open")
+  registrationClose    DateTime        @default(now()) @map("registration_close")
+  registrationDeadline DateTime        @default(now()) @map("registration_deadline")
+  capacity             Int             @default(50)
+  hours                Float           @default(0)
+  lecturerInCharge     String          @default("") @map("lecturer_in_charge")
+  coopHours            Float           @default(0) @map("coop_hours")
+  volunteerHours       Float           @default(0) @map("volunteer_hours")
+  majorHours           Float           @default(0) @map("major_hours")
+  status               ActivityStatus  @default(OPEN)
+  createdByUsername    String          @default("admin") @map("created_by_username")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
 
+  registrations        Registration[]
+  participations       Participation[]
+
+  @@index([startTime])
   @@index([status])
-  @@index([date])
+  @@map("activities")
 }
 
-/// Manual hour claim submitted by a student
-/// (e.g. external volunteer work), reviewed by staff/admin.
 model HourRequest {
-  id               String      @id @default(cuid())
-  userId           String
+  id               String              @id @default(cuid())
+  coreUserId       String?             @map("core_user_id")
+  studentId        String              @default("") @map("student_id")
+  studentName      String              @default("") @map("student_name")
   title            String
-  dateStr          String
-  timeStr          String?     @default("09:00 - 16:00")
-  type             String
-  typeCategory     String      @default("ภายนอก")
-  hours            Int
-  approvedHours    Int?
-  approvedCategory String?
-  status           String      @default("PENDING_APPROVAL")
-  statusText       String      @default("รอตรวจสอบ")
-  imageProof       String?
+  category         HourRequestCategory @default(COOP)
+  hours            Float               @default(0)
+  proofUrl         String?             @map("proof_url")
+  studentPhoto     String?             @map("student_photo")
+  description      String?
+  status           HourRequestStatus   @default(PENDING)
+  statusText       String?             @map("status_text")
+  rejectionReason  String?             @map("rejection_reason")
+  rejectReason     String?             @map("reject_reason")
+  reviewedBy       String?             @map("reviewed_by")
+  dateStr          String?             @map("date_str")
+  timeStr          String?             @map("time_str")
+  type             String?             @default("กิจกรรมภายนอก")
+  typeCategory     String?             @default("ภายนอก") @map("type_category")
+  approvedHours    Float?              @map("approved_hours")
+  approvedCategory String?             @map("approved_category")
+  imageProof       String?             @map("image_proof")
   note             String?
-  rejectReason     String?
-  createdAt        DateTime    @default(now())
-  UserProfile      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
-model Approval {
-  id                String           @id
-  submissionId      String
-  decision          ApprovalDecision
-  reason            String?
-  decidedByUsername String
-  decidedAt         DateTime         @default(now())
-  HourSubmission    HourSubmission   @relation(fields: [submissionId], references: [id])
-
-  @@index([submissionId])
-}
-
-model CoOpRequirement {
-  id            String   @id
-  label         String
-  requiredHours Int      @default(15)
-  academicYear  String?
-  curriculum    String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime
-}
-
-model Evidence {
-  id                 String         @id
-  submissionId       String
-  fileName           String
-  mimeType           String
-  fileSizeBytes      Int
-  storagePath        String
-  uploadedByUsername String
-  uploadedAt         DateTime       @default(now())
-  HourSubmission     HourSubmission @relation(fields: [submissionId], references: [id])
-
-  @@index([submissionId])
-}
-
-model HourLedger {
-  id              String           @id
-  studentUsername String
-  submissionId    String
-  hours           Int
-  status          SubmissionStatus
-  createdAt       DateTime         @default(now())
-  HourSubmission  HourSubmission   @relation(fields: [submissionId], references: [id])
-
-  @@index([studentUsername])
-}
-
-model HourSubmission {
-  id                 String           @id
-  studentUsername    String
-  source             SubmissionSource
-  activityId         String?
-  externalTitle      String?
-  externalDate       DateTime?
-  hoursRequested     Int
-  status             SubmissionStatus @default(SUBMITTED)
-  rejectionReason    String?
-  reviewedByUsername String?
-  reviewedAt         DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime
-  Approval           Approval[]
-  Evidence           Evidence[]
-  HourLedger         HourLedger[]
+  userProfile      UserProfile?        @relation(fields: [coreUserId], references: [id], onDelete: Cascade)
 
   @@index([status])
-  @@index([studentUsername])
+  @@index([studentId])
+  @@map("hour_requests")
+}
+
+model Registration {
+  id                     String             @id @default(cuid())
+  activityId             String             @map("activity_id")
+  username               String
+  status                 RegistrationStatus @default(REGISTERED)
+  queueNumber            Int?               @map("queue_number")
+  registeredAt           DateTime           @default(now()) @map("registered_at")
+  attendedAt             DateTime?          @map("attended_at")
+  cancelledAt            DateTime?          @map("cancelled_at")
+  creditedCoopHours      Float?             @map("credited_coop_hours")
+  creditedVolunteerHours Float?             @map("credited_volunteer_hours")
+  creditedMajorHours     Float?             @map("credited_major_hours")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  activity               Activity           @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userProfile            UserProfile        @relation(fields: [username], references: [username], onDelete: Restrict)
+
+  @@unique([activityId, queueNumber])
+  @@unique([activityId, username])
+  @@index([status])
+  @@map("registrations")
 }
 
 model Participation {
-  id              String    @id
-  activityId      String
-  studentUsername String
-  registeredAt    DateTime  @default(now())
-  cancelledAt     DateTime?
-  Activity        Activity  @relation(fields: [activityId], references: [id])
+  id              String    @id @default(cuid())
+  activityId      String    @map("activity_id")
+  studentUsername String    @map("student_username")
+  registeredAt    DateTime  @default(now()) @map("registered_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+
+  activity        Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   @@unique([activityId, studentUsername])
   @@index([studentUsername])
+  @@map("participations")
+}
+
+model UserHourSummary {
+  id             String      @id @default(cuid())
+  username       String      @unique
+  coopHours      Float       @default(0) @map("coop_hours")
+  volunteerHours Float       @default(0) @map("volunteer_hours")
+  majorHours     Float       @default(0) @map("major_hours")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  user           UserProfile @relation(fields: [username], references: [username], onDelete: Restrict)
+
+  @@map("user_hour_summaries")
+}
+
+model UserProfile {
+  id          String           @id @default(cuid())
+  username    String           @unique
+  studentCode String?          @unique @map("student_code")
+  fullName    String?          @map("full_name")
+  displayName String?          @map("display_name")
+  email       String?          @unique
+  faculty     String?          @default("วิทยาศาสตร์")
+  major       String?
+  yearLevel   Int?             @map("year_level")
+  layer2Role  SubsystemRole    @default(student) @map("layer2_role")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  summary      UserHourSummary?
+  registers    Registration[]
+  hourRequests HourRequest[]
+
+  @@index([layer2Role])
+  @@map("user_profiles")
 }
 
 enum ActivityStatus {
-  DRAFT
-  PUBLISHED
   OPEN
-  FULL
+  PUBLISHED
   CLOSED
-  CANCELLED
   COMPLETED
 }
 
-enum ApprovalDecision {
-  APPROVED
-  REJECTED
-  NEED_REVISION
+enum HourRequestCategory {
+  COOP
+  VOLUNTEER
+  MAJOR
 }
 
-enum SubmissionSource {
-  INTERNAL_ACTIVITY
-  EXTERNAL_ACTIVITY
-}
-
-enum SubmissionStatus {
-  DRAFT
-  SUBMITTED
-  UNDER_REVIEW
-  NEED_REVISION
+enum HourRequestStatus {
+  PENDING
+  PENDING_APPROVAL
   APPROVED
   REJECTED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITING
+  ATTENDED
+  ABSENT
   CANCELLED
+}
+
+enum SubsystemRole {
+  student
+  admin
 }

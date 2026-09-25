@@ -219,8 +219,8 @@ export async function getAttendanceRoster(activityId: string) {
 
 export async function getPrintRoster(activityId: string) {
   return getAttendanceRoster(activityId);
-
 }
+
 // ---------------------------------------------------------------------------
 // สรุปรายชื่อนักศึกษา (Admin) — hour totals per student for the summary page
 // ---------------------------------------------------------------------------
@@ -239,20 +239,20 @@ export interface StudentSummaryRow {
 export async function getAllStudentsSummary(): Promise<StudentSummaryRow[]> {
   const profiles = await prisma.userProfile.findMany({
     where: { layer2Role: 'student' },
-    include: { hourSummary: true },
+    include: { summary: true }, // เปลี่ยนจาก hourSummary เป็น summary
     orderBy: { username: 'asc' },
   });
 
   return profiles.map((p) => {
-    const coopHours = p.hourSummary?.coopHours ?? 0;
+    const coopHours = p.summary?.coopHours ?? 0;
     return {
       username: p.username,
       displayName: p.displayName,
       major: p.major,
       yearLevel: p.yearLevel,
       coopHours,
-      volunteerHours: p.hourSummary?.volunteerHours ?? 0,
-      majorHours: p.hourSummary?.majorHours ?? 0,
+      volunteerHours: p.summary?.volunteerHours ?? 0,
+      majorHours: p.summary?.majorHours ?? 0,
       eligible: coopHours >= 15,
     };
   });

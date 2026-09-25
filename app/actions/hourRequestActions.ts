@@ -1,13 +1,14 @@
 'use server';
 
-import { prisma } from '@/lib/prisma'; // ปรับ path ตามโปรเจกต์ของคุณ
+import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { HourRequestCategory, HourRequestStatus } from '@prisma/client';
 
 // 1. ดึงรายการคำร้องทั้งหมดของนักศึกษา
 export async function getStudentRequests(userId: string) {
   try {
     return await prisma.hourRequest.findMany({
-      where: { userId },
+      where: { studentId: userId },
       orderBy: { createdAt: 'desc' },
     });
   } catch (error) {
@@ -19,29 +20,27 @@ export async function getStudentRequests(userId: string) {
 // 2. นักศึกษายื่นคำร้องขอชั่วโมงใหม่
 export async function createHourRequest(data: {
   userId: string;
+  studentName?: string;
   title: string;
-  dateStr: string;
-  type: string;
+  category?: HourRequestCategory;
   hours: number;
-  approvedCategory?: string;
-  imageProof?: string;
-  note?: string;
+  proofUrl?: string;
+  description?: string;
 }) {
   try {
     const newReq = await prisma.hourRequest.create({
       data: {
-        userId: data.userId,
+        studentId: data.userId,
+        studentName: data.studentName || data.userId,
         title: data.title,
-        dateStr: data.dateStr,
-        type: data.type,
+        category: data.category || HourRequestCategory.COOP,
         hours: data.hours,
-        approvedCategory: data.approvedCategory || 'COOP',
-        imageProof: data.imageProof,
-        note: data.note,
-        status: 'PENDING_APPROVAL',
-        statusText: 'รอตรวจสอบ',
+        proofUrl: data.proofUrl,
+        description: data.description,
+        status: HourRequestStatus.PENDING,
       },
     });
+
     revalidatePath('/dashboard');
     revalidatePath('/admin/requests');
     return { success: true, data: newReq };
@@ -55,21 +54,19 @@ export async function createHourRequest(data: {
 export async function reviewHourRequest(
   requestId: string,
   status: 'APPROVED' | 'REJECTED',
-  approvedHours: number,
-  approvedCategory: string,
+  reviewedBy?: string,
   rejectReason?: string
 ) {
   try {
     const updated = await prisma.hourRequest.update({
       where: { id: requestId },
       data: {
-        status: status === 'APPROVED' ? 'APPROVED' : 'REJECTED',
-        statusText: status === 'APPROVED' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ',
-        approvedHours,
-        approvedCategory,
-        rejectReason: status === 'REJECTED' ? rejectReason : null,
+        status: status === 'APPROVED' ? HourRequestStatus.APPROVED : HourRequestStatus.REJECTED,
+        rejectionReason: status === 'REJECTED' ? rejectReason : null,
+        reviewedBy: reviewedBy || 'admin',
       },
     });
+
     revalidatePath('/dashboard');
     revalidatePath('/admin/requests');
     return { success: true, data: updated };

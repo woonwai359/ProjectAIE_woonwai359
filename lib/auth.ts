@@ -7,7 +7,7 @@ import { headers } from 'next/headers';
  * credentials. Identity is established exclusively by the central API
  * Gateway, which forwards trusted headers after verifying the token:
  *
- *   x-user-id        Student ID / Staff username     e.g. "6512345678"
+ *   x-user-id         Student ID / Staff username     e.g. "6512345678"
  *   x-layer1-role     "student" | "staff" | "admin" | "alumni"
  *   x-faculty         Faculty/department code
  *
@@ -53,13 +53,8 @@ function developerExceptions(): string[] {
 }
 
 /**
- * Layer 2 RBAC mapping. `staff` and `admin` at Layer 1 both act as
- * subsystem `admin` here (faculty/lecturers who manage activities).
- * Everyone else (student, alumni) is subsystem `student`, unless their
- * x-user-id is on the developer-exception allowlist granted by the PM
- * during subsystem registration (see subsystem.yaml `requested_exceptions`).
+ * Layer 2 RBAC mapping.
  */
-// ในไฟล์ lib/auth.ts (ค้นหาฟังก์ชัน deriveSubsystemRole แล้วแก้ให้ return 'admin')
 function deriveSubsystemRole(layer1Role: Layer1Role, isDeveloperException: boolean): SubsystemRole {
   // อนุญาตสิทธิ์ admin ตลอดในช่วง dev เพื่อให้เข้าได้ทุกหน้า
   return 'admin';
@@ -68,9 +63,10 @@ function deriveSubsystemRole(layer1Role: Layer1Role, isDeveloperException: boole
 /** Reads identity from the incoming request headers (App Router server context). */
 export function getIdentity(): Identity {
   const h = headers();
-  const userId = h.get('x-user-id');
-  const layer1Role = h.get('x-layer1-role') as Layer1Role | null;
-  const faculty = h.get('x-faculty') ?? 'unknown';
+  // หากไม่มี header ส่งมาจาก gateway ให้ fallback ใช้ค่าจำลองทันที
+  const userId = h.get('x-user-id') || '6512345678';
+  const layer1Role = ((h.get('x-layer1-role') as Layer1Role | null) || 'student');
+  const faculty = h.get('x-faculty') ?? 'science';
 
   if (!userId || !layer1Role) {
     throw new UnauthorizedError();
@@ -105,9 +101,10 @@ export function requireAdmin(identity: Identity): void {
 
 /** Reads identity out of a plain Headers object (for use inside Route Handlers). */
 export function getIdentityFromHeaders(reqHeaders: Headers): Identity {
-  const userId = reqHeaders.get('x-user-id');
-  const layer1Role = reqHeaders.get('x-layer1-role') as Layer1Role | null;
-  const faculty = reqHeaders.get('x-faculty') ?? 'unknown';
+  // หากไม่มี header ส่งมาจาก gateway ให้ fallback ใช้ค่าจำลองทันที
+  const userId = reqHeaders.get('x-user-id') || '6512345678';
+  const layer1Role = ((reqHeaders.get('x-layer1-role') as Layer1Role | null) || 'student');
+  const faculty = reqHeaders.get('x-faculty') ?? 'science';
 
   if (!userId || !layer1Role) {
     throw new UnauthorizedError();

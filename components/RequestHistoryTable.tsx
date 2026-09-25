@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { HourRequest } from '@prisma/client';
-import { RequestStatusBadge } from '@/components/RequestStatusBadge';
+import RequestStatusBadge from '@/components/RequestStatusBadge';
 import { formatHours, formatThaiDate } from '@/lib/utils';
 
 const CATEGORY_LABEL: Record<string, string> = {

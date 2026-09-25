@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getIdentity, ForbiddenError } from '@/lib/auth';
 import { getHourRequestById } from '@/lib/services/hourRequest';
-import { HourRequestForm } from '@/components/HourRequestForm';
+import HourRequestForm from '@/components/HourRequestForm';
 
 export const dynamic = 'force-dynamic';
 
