@@ -55,26 +55,32 @@ export default function AdminActivitiesPage() {
     const activity = publishedList.find((a) => a.id === id);
     if (!activity) return;
 
-    const newStatus = activity.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+    const newStatus: 'OPEN' | 'CLOSED' = activity.status === 'OPEN' ? 'CLOSED' : 'OPEN';
 
-    // อัปเดตหน้าจอทันที
-    const updated = publishedList.map((item) => {
-      if (item.id === id) {
-        return { ...item, status: newStatus as 'OPEN' | 'CLOSED' };
-      }
-      return item;
-    });
-    setPublishedList(updated);
+    // 1. อัปเดต State หน้า Admin ทันที (Optimistic Update)
+    setPublishedList((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+    );
 
-    // ยิง API เพื่อบันทึกการเปลี่ยนสถานะในฐานข้อมูล
+    // 2. ยิง API เพื่อบันทึกการเปลี่ยนสถานะในฐานข้อมูล
     try {
-      await fetch('/api/admin/activities/status', {
+      const res = await fetch('/api/admin/activities/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus }),
       });
+
+      if (res.ok) {
+        // แจ้งเตือนหน้า Dashboard และแท็บอื่นให้รีโหลดข้อมูลใหม่ทันที
+        window.dispatchEvent(new Event('csmju_activity_updated'));
+        localStorage.setItem('csmju_activity_sync', Date.now().toString());
+      } else {
+        alert('เกิดข้อผิดพลาดในการอัปเดตสถานะในฐานข้อมูล');
+        loadActivities(); // คืนค่าเดิมถ้า API ล้มเหลว
+      }
     } catch (e) {
       console.error('Failed to update status in DB', e);
+      loadActivities();
     }
   };
 
@@ -83,7 +89,6 @@ export default function AdminActivitiesPage() {
     if (!confirm(`คุณต้องการลบกิจกรรม "${act.title}" ออกจากระบบถาวร ใช่หรือไม่?`)) return;
 
     try {
-      // 1. ส่งคำขอลบไปยัง API ฐานข้อมูล
       const res = await fetch(`/api/admin/activities?id=${act.id}`, {
         method: 'DELETE',
       });
@@ -93,16 +98,14 @@ export default function AdminActivitiesPage() {
         return;
       }
 
-      // 2. ลบออกจากหน้าจอทันทีเมื่อฐานข้อมูลลบสำเร็จ
       const updatedList = publishedList.filter((item) => item.id !== act.id);
       setPublishedList(updatedList);
 
-      // กระตุ้นให้หน้าอื่นที่เปิดอยู่รีเฟรชข้อมูลจาก DB ใหม่
       window.dispatchEvent(new Event('csmju_activity_updated'));
       window.dispatchEvent(new Event('csmju_hours_updated'));
+      localStorage.setItem('csmju_activity_sync', Date.now().toString());
 
       alert('ลบกิจกรรมออกจากฐานข้อมูลเรียบร้อยแล้ว');
-      
     } catch (err) {
       console.error('Delete activity failed:', err);
       alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อลบข้อมูลได้');

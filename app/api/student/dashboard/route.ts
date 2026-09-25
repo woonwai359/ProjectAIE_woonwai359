@@ -16,9 +16,9 @@ export async function GET() {
     });
     const registeredIds = participations.map((p) => p.activityId);
 
-    // ดึงรายการกิจกรรมทั้งหมดที่เปิดรับ
+    // ดึงรายการกิจกรรมทั้งหมดที่เปิดรับและปิดรับแล้ว เพื่อให้แสดงสถานะบน Dashboard ได้ครบถ้วน
     const activitiesFromDb = await prisma.activity.findMany({
-      where: { status: { in: ['OPEN', 'PUBLISHED'] } },
+      where: { status: { in: ['OPEN', 'PUBLISHED', 'CLOSED'] } },
       orderBy: { date: 'desc' },
     });
 
@@ -58,7 +58,7 @@ export async function GET() {
       hours: act.hours,
       capacity: act.capacity,
       registeredCount: countMap.get(act.id) || 0,
-      status: act.status === 'OPEN' || act.status === 'PUBLISHED' ? 'OPEN' : 'CLOSED',
+      status: act.status === 'CLOSED' ? 'CLOSED' : 'OPEN',
     }));
 
     return NextResponse.json({
