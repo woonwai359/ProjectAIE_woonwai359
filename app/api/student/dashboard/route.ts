@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const studentUsername = '6704101359';
 
     const studentProfile = await prisma.userProfile.findFirst({
       where: { studentCode: studentUsername },
-      include: { HourRequest: true },
+      include: { hourRequests: true },
     });
 
     // ดึงประวัติการลงทะเบียนจริงจากตาราง Participation ของนักศึกษา
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       countMap.set(p.activityId, count + 1);
     });
 
-    const formattedActivities = (studentProfile?.HourRequest || []).map((req) => ({
+    const formattedActivities = (studentProfile?.hourRequests || []).map((req) => ({
       id: req.id,
       dateStr: req.dateStr,
       timeStr: req.timeStr || '09:00 - 16:00',
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       location: act.location || 'คณะวิทยาศาสตร์ มหาวิทยาลัยแม่โจ้',
       hours: act.hours,
       capacity: act.capacity,
-      registeredCount: countMap.get(act.id) || 0, // นับจำนวนผู้สมัครจริงจากตาราง Participation
+      registeredCount: countMap.get(act.id) || 0,
       status: act.status === 'OPEN' || act.status === 'PUBLISHED' ? 'OPEN' : 'CLOSED',
     }));
 

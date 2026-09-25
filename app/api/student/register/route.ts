@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     if (!userProfile) {
       userProfile = await prisma.userProfile.create({
         data: {
+          username: studentUsername,
           studentCode: studentUsername,
           fullName: 'นางสาวพัฒน์นรี วันพิลา',
           email: 'phatnaree@cmu.ac.th',
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
       });
 
       if (!existing) {
-        // สร้าง id สุ่มขึ้นมาเองเพื่อป้องกัน Error เรื่อง Argument id is missing
         await prisma.participation.create({
           data: {
             id: `part-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -56,17 +56,19 @@ export async function POST(request: Request) {
 
       // 4. บันทึกชั่วโมงสะสมใน HourRequest ถ้ายังไม่มี
       const existingReq = await prisma.hourRequest.findFirst({
-        where: { userId: userProfile.id, title: activity.title },
+        where: { coreUserId: userProfile.id, title: activity.title },
       });
 
       if (!existingReq) {
         const isCoop = activity.activityType?.includes('สหกิจ');
         await prisma.hourRequest.create({
           data: {
-            userId: userProfile.id,
+            coreUserId: userProfile.id,
+            studentId: userProfile.username,
+            studentName: userProfile.fullName || userProfile.displayName || studentUsername,
             title: activity.title,
             dateStr: new Date(activity.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }),
-            timeStr: `${activity.startTime ? new Date(activity.startTime).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) : '09:00'} - 16:00 น.`,
+            timeStr: `${activity.startTime ? new Date(activity.startTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '09:00'} - 16:00 น.`,
             type: 'กิจกรรมของหลักสูตร',
             typeCategory: isCoop ? 'COOP' : 'VOLUNTEER',
             hours: Number(activity.hours) || 1,
@@ -87,7 +89,7 @@ export async function POST(request: Request) {
 
       // 6. ลบชั่วโมงออก
       await prisma.hourRequest.deleteMany({
-        where: { userId: userProfile.id, title: activity.title },
+        where: { coreUserId: userProfile.id, title: activity.title },
       });
     }
 

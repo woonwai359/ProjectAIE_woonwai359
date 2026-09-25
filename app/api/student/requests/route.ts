@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     if (!userProfile) {
       userProfile = await prisma.userProfile.create({
         data: {
+          username: studentCode,
           studentCode,
           fullName: 'นางสาวพัฒน์นรี วันพิลา',
           email: 'phatnaree@cmu.ac.th',
@@ -31,7 +32,9 @@ export async function POST(request: Request) {
     const newRequest = await prisma.hourRequest.create({
       data: {
         id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        userId: userProfile.id,
+        coreUserId: userProfile.id,
+        studentId: userProfile.username,
+        studentName: userProfile.fullName || userProfile.displayName || studentCode,
         title,
         dateStr: dateStr || 'วันนี้',
         timeStr: timeStr || '09:00 - 16:00',
@@ -54,8 +57,8 @@ export async function POST(request: Request) {
   }
 }
 
-// **เพิ่มฟังก์ชัน GET ตรงนี้ เพื่อให้หน้าเว็บดึงประวัติมาแสดงได้**
-export async function GET(request: Request) {
+// ฟังก์ชัน GET เพื่อให้หน้าเว็บดึงประวัติมาแสดงได้
+export async function GET() {
   try {
     const studentCode = '6704101359';
 
@@ -68,7 +71,7 @@ export async function GET(request: Request) {
     }
 
     const requests = await prisma.hourRequest.findMany({
-      where: { userId: userProfile.id },
+      where: { coreUserId: userProfile.id },
       orderBy: { id: 'desc' },
     });
 
@@ -79,6 +82,7 @@ export async function GET(request: Request) {
   }
 }
 
+// ฟังก์ชัน DELETE ลบคำร้อง
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

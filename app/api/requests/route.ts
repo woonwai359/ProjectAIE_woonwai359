@@ -1,46 +1,47 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { HourRequestCategory, HourRequestStatus } from '@prisma/client';
 
-// ฟังก์ชัน POST (บันทึกข้อมูล - ที่เราทำไปแล้ว)
+// ฟังก์ชัน POST (บันทึกข้อมูล)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, dateStr, timeStr, categoryTarget, typeDetail, hours, imageProof, note } = body;
+    const { title, categoryTarget, hours, proofUrl, description } = body;
 
     const studentCode = '6704101359';
 
     let userProfile = await prisma.userProfile.findFirst({
-      where: { studentCode },
+      where: { username: studentCode },
     });
 
     if (!userProfile) {
       userProfile = await prisma.userProfile.create({
         data: {
-          studentCode,
-          fullName: 'นางสาวพัฒน์นรี วันพิลา',
-          email: 'phatnaree@cmu.ac.th',
+          username: studentCode,
+          displayName: 'นางสาวพัฒน์นรี วันพิลา',
           major: 'วิทยาการคอมพิวเตอร์',
-          faculty: 'วิทยาศาสตร์',
+          layer2Role: 'student',
         },
       });
     }
 
+    const categoryEnum: HourRequestCategory =
+      categoryTarget === 'VOLUNTEER'
+        ? HourRequestCategory.VOLUNTEER
+        : categoryTarget === 'MAJOR'
+        ? HourRequestCategory.MAJOR
+        : HourRequestCategory.COOP;
+
     const newRequest = await prisma.hourRequest.create({
       data: {
-        id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        userId: userProfile.id,
+        studentId: userProfile.username,
+        studentName: userProfile.displayName || studentCode,
         title: title || 'ยื่นขอชั่วโมงกิจกรรม',
-        dateStr: dateStr || 'วันนี้',
-        timeStr: timeStr || '09:00 - 16:00',
-        type: typeDetail || 'กิจกรรมภายนอก',
-        typeCategory: categoryTarget === 'VOLUNTEER' ? 'VOLUNTEER' : 'COOP',
+        category: categoryEnum,
         hours: Number(hours) || 1,
-        status: 'PENDING_APPROVAL',
-        statusText: 'รอตรวจสอบ',
-        approvedHours: Number(hours) || 1,
-        approvedCategory: categoryTarget === 'VOLUNTEER' ? 'VOLUNTEER' : 'COOP',
-        imageProof: imageProof || null,
-        note: note || null,
+        proofUrl: proofUrl || null,
+        description: description || null,
+        status: HourRequestStatus.PENDING,
       },
     });
 
@@ -51,23 +52,14 @@ export async function POST(request: Request) {
   }
 }
 
-// **เพิ่มฟังก์ชัน GET ตรงนี้ เพื่อให้หน้าเว็บดึงประวัติมาแสดงได้**
-export async function GET(request: Request) {
+// ฟังก์ชัน GET (ดึงประวัติมาแสดง)
+export async function GET() {
   try {
     const studentCode = '6704101359';
 
-    const userProfile = await prisma.userProfile.findFirst({
-      where: { studentCode },
-    });
-
-    if (!userProfile) {
-      return NextResponse.json({ success: true, data: [] });
-    }
-
-    // ดึงรายการคำร้องทั้งหมดของนักศึกษาคนนี้จากฐานข้อมูล
     const requests = await prisma.hourRequest.findMany({
-      where: { userId: userProfile.id },
-      orderBy: { id: 'desc' }, // เรียงจากล่าสุดไปเก่าสุด
+      where: { studentId: studentCode },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({ success: true, data: requests });
@@ -77,7 +69,7 @@ export async function GET(request: Request) {
   }
 }
 
-// ฟังก์ชัน DELETE (ลบข้อมูล - อันเดิมที่มีอยู่แล้ว)
+// ฟังก์ชัน DELETE (ลบข้อมูล)
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
