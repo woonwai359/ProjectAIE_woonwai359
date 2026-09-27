@@ -78,9 +78,20 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     loadAllData();
+
+    // ดักฟังการอัปเดตข้ามแท็บ (เมื่อหน้า Admin มีการปิดรับ/เปิดรับ หรือลบกิจกรรม)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'csmju_activity_sync') {
+        loadAllData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('csmju_activity_updated', loadAllData);
     window.addEventListener('csmju_hours_updated', loadAllData);
+
     return () => {
+      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('csmju_activity_updated', loadAllData);
       window.removeEventListener('csmju_hours_updated', loadAllData);
     };
@@ -103,8 +114,11 @@ export default function StudentDashboardPage() {
         body: JSON.stringify({ activityId: act.id, action }),
       });
       if (res.ok) {
-        // โหลดข้อมูลใหม่จากฐานข้อมูลทันที เพื่อให้สถานะและชั่วโมงตรงกับ Database 100%
         await loadAllData();
+        // แจ้งเตือนหน้า Admin ให้รีเฟรชยอดผู้สมัครด้วย
+        window.dispatchEvent(new Event('csmju_activity_updated'));
+        localStorage.setItem('csmju_activity_sync', Date.now().toString());
+
         if (isRegistered) {
           alert(`ยกเลิกการลงทะเบียน "${act.title}" เรียบร้อยแล้ว`);
         } else {
@@ -121,7 +135,6 @@ export default function StudentDashboardPage() {
 
   const coopTarget = 15;
 
-  // คำนวณชั่วโมงจากข้อมูลใน State ที่ดึงมาจากฐานข้อมูลโดยตรง (ไม่มี LocalStorage)
   const coopHoursEarned = useMemo(() => {
     return activities
       .filter(
@@ -380,7 +393,6 @@ export default function StudentDashboardPage() {
           <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
             เปิดรับสมัคร {publishedList.filter((a) => a.status === 'OPEN').length} กิจกรรม
           </span>
-
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -396,8 +408,10 @@ export default function StudentDashboardPage() {
                 className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between space-y-4 ${
                   isRegistered
                     ? 'bg-blue-50/40 border-blue-200'
-                    : isClosed || isFull
-                    ? 'bg-slate-50 border-slate-200 opacity-80'
+                    : isClosed
+                    ? 'bg-slate-50 border-slate-200 opacity-75'
+                    : isFull
+                    ? 'bg-amber-50/30 border-amber-200'
                     : 'bg-white border-slate-200/90 hover:border-blue-300 hover:shadow-md'
                 }`}
               >
@@ -418,7 +432,7 @@ export default function StudentDashboardPage() {
                   </div>
                   <h3 className="text-sm font-bold text-slate-800 leading-snug">{act.title}</h3>
                   <div className="space-y-1 text-xs text-slate-500">
-                    <p> <b>วันที่:</b> {act.dateStr}</p>
+                    <p><b>วันที่:</b> {act.dateStr}</p>
                     <p><b>สถานที่:</b> {act.location}</p>
                     <p>
                       <b>จำนวนผู้สมัคร:</b>{' '}
@@ -436,27 +450,43 @@ export default function StudentDashboardPage() {
                         ✓ ลงทะเบียนแล้ว
                       </span>
                     ) : isClosed ? (
-                      <span className="text-xs font-bold text-rose-500">ปิดรับสมัครแล้ว</span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        ปิดรับสมัครแล้ว
+                      </span>
                     ) : isFull ? (
-                      <span className="text-xs font-bold text-amber-600">ที่นั่งเต็มแล้ว</span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        ที่นั่งเต็มแล้ว
+                      </span>
                     ) : (
-                      <span className="text-xs text-slate-400">เปิดรับสมัครอยู่</span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        เปิดรับสมัครอยู่
+                      </span>
                     )}
                   </div>
 
                   <button
                     type="button"
-                    disabled={isClosed || isFull}
+                    disabled={(!isRegistered && isClosed) || (!isRegistered && isFull)}
                     onClick={() => handleRegisterActivity(act)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer ${
                       isRegistered
                         ? 'bg-rose-100 hover:bg-rose-200 text-rose-700'
-                        : isClosed || isFull
+                        : isClosed
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        : isFull
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-md shadow-blue-500/20'
                     }`}
                   >
-                    {isRegistered ? 'ยกเลิกการลงทะเบียน' : isFull ? 'เต็มแล้ว' : 'กดลงทะเบียนเข้าร่วม'}
+                    {isRegistered
+                      ? 'ยกเลิกการลงทะเบียน'
+                      : isClosed
+                      ? 'ปิดรับสมัครแล้ว'
+                      : isFull
+                      ? 'เต็มแล้ว'
+                      : 'กดลงทะเบียนเข้าร่วม'}
                   </button>
                 </div>
               </div>
@@ -495,8 +525,7 @@ export default function StudentDashboardPage() {
                   {day}
                 </div>
               );
-            })
-            }
+            })}
           </div>
         </div>
 

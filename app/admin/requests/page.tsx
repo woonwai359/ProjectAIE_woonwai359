@@ -254,14 +254,7 @@ export default function AdminRequestsPage() {
                         >
                           ตรวจสอบ
                         </button>
-                        <Link
-                          href={`/admin/activities/${item.id}/print`}
-                          target="_blank"
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-700 rounded-xl text-[11px] font-bold transition inline-flex items-center cursor-pointer"
-                          title="พิมพ์ใบเซ็นชื่อ"
-                        >
-                          🖨️
-                        </Link>
+                       
                       </div>
                     </td>
                   </tr>
