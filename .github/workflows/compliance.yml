@@ -21,5 +21,8 @@ jobs:
 
       - name: Run All Compliance Checks
         run: |
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.ref_name }}" == "main" ]]; then
+            git checkout -b feature/coop-hours/compliance-base
+          fi
           chmod +x ../csmju2030-standards/scripts/*.sh
           ../csmju2030-standards/scripts/run-all-checks.sh .
