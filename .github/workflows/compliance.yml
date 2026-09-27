@@ -1,0 +1,42 @@
+cat << 'EOF' > .github/workflows/compliance.yml
+name: Subsystem Compliance Check
+
+on:
+  push:
+    branches: [ main, "feature/**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Setup dummy backend dir for standards check
+        run: |
+          mkdir -p backend/src
+          touch backend/src/.gitkeep
+
+      - name: Clone CSMJU2030 Standards
+        run: git clone https://github.com/CSMJU2030/csmju2030-standards.git ../csmju2030-standards
+
+      - name: Run All Compliance Checks
+        run: |
+          chmod +x ../csmju2030-standards/scripts/*.sh
+          ../csmju2030-standards/scripts/run-all-checks.sh .
+EOF
